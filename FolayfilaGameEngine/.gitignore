@@ -1,0 +1,96 @@
+# =========================
+# Visual Studio
+# =========================
+
+# User-specific files
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Visual Studio directories
+.vs/
+
+# Build results
+Debug/
+Release/
+x64/
+x86/
+ARM/
+ARM64/
+
+# CMake (if used)
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+compile_commands.json
+CTestTestfile.cmake
+out/build/
+out/install/
+
+# MSBuild
+*.log
+*.tlog
+*.lastbuildstate
+*.unsuccessfulbuild
+
+# =========================
+# C++ Build Artifacts
+# =========================
+
+# Object files
+*.obj
+*.o
+*.lo
+
+# Static libraries
+*.lib
+*.a
+
+# Dynamic libraries
+*.dll
+*.so
+*.dylib
+
+# Executables
+*.exe
+*.out
+*.app
+
+# Debug files
+*.pdb
+*.ilk
+*.idb
+*.ipdb
+*.iobj
+
+# Precompiled headers
+*.pch
+
+# =========================
+# Generated / Temporary
+# =========================
+
+# Temporary files
+*.tmp
+*.temp
+
+# Backup files
+*.bak
+*.old
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# =========================
+# Engine-specific (optional)
+# =========================
+
+# If you generate build folders manually
+/build/
+/bin/
+/obj/
+
+# If you cache assets
+/cache/
