@@ -2,10 +2,73 @@
 
 #include <windows.h>
 
-LRESULT CALLBACK MainWindowCallback(HWND Window,
-                           UINT Message,
-                           WPARAM WParam,
-                           LPARAM LParam)
+#define internal static         // Don't allow this function to be called from another file than its.
+#define local_presist static    // static local variable
+#define global_variable static
+
+// TODO(abdallah): Global for now.
+global_variable bool Running;
+
+global_variable BITMAPINFO BitmapInfo;
+global_variable void* BitmapMemory;
+global_variable HBITMAP BitmapHandle;
+global_variable HDC BitmapDeviceContext;
+
+// We create a buffer for our content that we want to display, then we pass it to windows to paint it when we want.
+internal void Win32ResizeDIBSection(int Width, int Height)    // DIB: Devise Independent Bitmap
+{
+    // TODO(abd): Free the previous DIB
+    if (BitmapInfo.bmiHeader.biSize)
+    {
+        DeleteObject(BitmapHandle);
+    }
+
+    if(!BitmapDeviceContext)
+    {
+        BitmapDeviceContext = CreateCompatibleDC(0);
+    }
+
+    BitmapInfo.bmiHeader.biSize = sizeof(BitmapInfo.bmiHeader);
+    BitmapInfo.bmiHeader.biWidth = Width;
+    BitmapInfo.bmiHeader.biHeight = Height;
+    BitmapInfo.bmiHeader.biPlanes = 1;
+    BitmapInfo.bmiHeader.biBitCount = 32;
+
+    BitmapInfo.bmiHeader.biCompression = BI_RGB;
+
+    BitmapDeviceContext = CreateCompatibleDC(0);
+
+    BitmapHandle = CreateDIBSection(
+        BitmapDeviceContext, &BitmapInfo,
+        DIB_RGB_COLORS,
+        &BitmapMemory,
+        0, 0);
+}
+
+internal void Win32UpdateWindow(HDC DeviceContext, int X, int Y, int Width, int Height)
+{
+    StretchDIBits(
+        DeviceContext,
+        X, Y, Width, Height, // destination
+        X, Y, Width, Height, // source
+        BitmapMemory,
+        &BitmapInfo,
+        DIB_RGB_COLORS, SRCCOPY);
+}
+
+void Win32PaintWindow(HWND& Window)
+{
+    PAINTSTRUCT Paint;
+    HDC DeviceContext = BeginPaint(Window, &Paint);
+    int X = Paint.rcPaint.left;
+    int Y = Paint.rcPaint.top;
+    int Height = Paint.rcPaint.bottom - Paint.rcPaint.top;
+    int Width = Paint.rcPaint.right - Paint.rcPaint.left;
+    Win32UpdateWindow(DeviceContext, X, Y, Width, Height);
+    EndPaint(Window, &Paint);
+}
+
+LRESULT CALLBACK Win32MainWindowCallback(HWND Window, UINT Message, WPARAM WParam, LPARAM LParam)
 {
     LRESULT Result = 0;
 
@@ -13,17 +76,12 @@ LRESULT CALLBACK MainWindowCallback(HWND Window,
     {
         case WM_SIZE:
         {
+            RECT ClientRect;
+            GetClientRect(Window, &ClientRect);
+            int Width = ClientRect.right - ClientRect.left;
+            int Height = ClientRect.bottom - ClientRect.top;
+            Win32ResizeDIBSection(Width, Height);
             OutputDebugStringA("WM_SIZE\n");
-        } break;
-
-        case WM_DESTROY:
-        {
-            OutputDebugStringA("WM_DESTROY\n");
-        } break;
-
-        case WM_CLOSE:
-        {
-            OutputDebugStringA("WM_CLOSE\n");
         } break;
 
         case WM_ACTIVATEAPP:
@@ -33,25 +91,20 @@ LRESULT CALLBACK MainWindowCallback(HWND Window,
 
         case WM_PAINT:
         {
-            PAINTSTRUCT Paint;
-            HDC DeviceContext = BeginPaint(Window, &Paint);
-
-            int X = Paint.rcPaint.left;
-            int Y = Paint.rcPaint.top;
-            int Height = Paint.rcPaint.bottom - Paint.rcPaint.top;
-            int Width = Paint.rcPaint.right - Paint.rcPaint.left;
-            // Change the color each tick between black and white.
-            static bool bIsBlack = false;
-            DWORD Operation = bIsBlack ? BLACKNESS : WHITENESS;
-            bIsBlack = !bIsBlack;
-            PatBlt(DeviceContext, X, Y, Width, Height, Operation);
-
-            EndPaint(Window, &Paint);
-
-            // Disabled cuz it blinded me!
-            //InvalidateRect(Window, 0, FALSE); // request another paint
-
+            Win32PaintWindow(Window);
             OutputDebugStringA("WM_PAINT\n");
+        } break;
+
+        case WM_DESTROY:
+        {
+            Running = false;
+            OutputDebugStringA("WM_DESTROY\n");
+        } break;
+
+        case WM_CLOSE:
+        {
+            Running = false;
+            OutputDebugStringA("WM_CLOSE\n");
         } break;
 
         default:
@@ -64,6 +117,9 @@ LRESULT CALLBACK MainWindowCallback(HWND Window,
     return Result;
 }
 
+
+/****************** Main ************************/
+
 int CALLBACK WinMain(
     HINSTANCE Instance,
     HINSTANCE PrevInstance,
@@ -72,7 +128,7 @@ int CALLBACK WinMain(
 {
     WNDCLASS WindowClass = {};
     WindowClass.style = CS_OWNDC|CS_HREDRAW|CS_VREDRAW;
-    WindowClass.lpfnWndProc = MainWindowCallback;
+    WindowClass.lpfnWndProc = Win32MainWindowCallback;
     WindowClass.hInstance = Instance;
     //WindowClass.hIcon = ;
     WindowClass.lpszClassName = "HandmadeFolayfilaWindowClass";
@@ -94,10 +150,12 @@ int CALLBACK WinMain(
             Instance,
             0);
 
+        // Main loop:
+        Running = true;
         if (WindowHandle)
         {
             MSG Message;
-            for (;;)
+            while (Running)
             {
                 BOOL MessageResult = GetMessage(&Message, 0, 0, 0);
                 if (MessageResult > 0)
