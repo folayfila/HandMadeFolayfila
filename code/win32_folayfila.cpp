@@ -473,6 +473,10 @@ int CALLBACK WinMain(
     LPSTR     CommandLine,
     int       ShowCode)
 {
+    LARGE_INTEGER PerfCountFrequencyResult;
+    QueryPerformanceFrequency(&PerfCountFrequencyResult); // Fixed at system boot and consistent across all processors.
+    int64_t PerfCountFrequency = PerfCountFrequencyResult.QuadPart;
+
     Win32LoadXInput();
 
     WNDCLASSA WindowClass = {};
@@ -520,7 +524,12 @@ int CALLBACK WinMain(
             SoundOutput.LatencySampleCount = SoundOutput.SamplesPerSecond / 15;
             Win32InitDSound(Window, SoundOutput.SamplesPerSecond, SoundOutput.SecondaryBufferSize);
             Win32FillSoundBuffer(&SoundOutput, 0, SoundOutput.LatencySampleCount*SoundOutput.BytesPerSample);
-            GlobalSecondaryBuffer->Play(0, 0, DSBPLAY_LOOPING);
+            //GlobalSecondaryBuffer->Play(0, 0, DSBPLAY_LOOPING);
+
+            LARGE_INTEGER LastCounter;
+            QueryPerformanceCounter(&LastCounter);
+
+            uint64_t LastCycleCount = __rdtsc();
 
             GlobalRunning = true;
             while (GlobalRunning)
@@ -569,6 +578,26 @@ int CALLBACK WinMain(
 
                 win32_window_deminsion Deminsion = Win32GetWindowDeminsion(Window);
                 Win32DisplayBufferInWindow(&GlobalBackBuffer, DeviceContext, Deminsion.Width, Deminsion.Height);
+
+                uint64_t EndCycleCount = __rdtsc();
+
+                LARGE_INTEGER EndCounter;
+                QueryPerformanceCounter(&EndCounter);
+
+                // TODO: Display the time value here.
+                int64_t CyclesElapsed = EndCycleCount - LastCycleCount;
+                int32_t MegaCyclesPerFrame = (int32_t)(CyclesElapsed / (1000 * 1000));
+
+                int64_t CounterElapsed = EndCounter.QuadPart - LastCounter.QuadPart;
+                int32_t MSPerFrame = (int32_t)((1000*CounterElapsed) / PerfCountFrequency);
+                int32_t FPS = (int32_t)(PerfCountFrequency / CounterElapsed);
+
+                char Buffer[256];
+                wsprintf(Buffer, "Milliseconds/frame: %d ms / %d FPS / %d MCPF\n", MSPerFrame, FPS, MegaCyclesPerFrame);
+                OutputDebugStringA(Buffer);
+
+                LastCycleCount = EndCycleCount;
+                LastCounter = EndCounter;
             }
         }
         else
