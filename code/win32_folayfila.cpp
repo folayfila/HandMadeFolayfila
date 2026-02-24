@@ -375,12 +375,15 @@ internal void Win32HandleControllerInput()
             int16_t StickX = Pad->sThumbLX;
             int16_t StickY = Pad->sThumbLY;
 
-            SoundOutput.ToneHz = 512 + (int)(256.0f * ((real32)StickX / 30000.0f));
-            SoundOutput.WavePeriod = SoundOutput.SamplesPerSecond / SoundOutput.ToneHz;
+            ColorXOffset += StickX / 4096;
+            ColorYOffset += StickY / 4096;
 
             XINPUT_VIBRATION Vibration;
             Vibration.wLeftMotorSpeed = 50000;
             Vibration.wRightMotorSpeed = 50000;
+
+            SoundOutput.ToneHz = 512 + (int)(256.0f * ((real32)StickX / 30000.0f));
+            SoundOutput.WavePeriod = SoundOutput.SamplesPerSecond / SoundOutput.ToneHz;
 
             if (Up)
             {
@@ -509,7 +512,7 @@ int CALLBACK WinMain(
 
             SoundOutput.SamplesPerSecond = 48000;
             SoundOutput.ToneHz = 256;
-            SoundOutput.ToneVolume = 1000;
+            SoundOutput.ToneVolume = 5000;
             SoundOutput.RunningSampleIndex = 0;
             SoundOutput.WavePeriod = SoundOutput.SamplesPerSecond / SoundOutput.ToneHz;
             SoundOutput.BytesPerSample = sizeof(int16_t) * 2;
