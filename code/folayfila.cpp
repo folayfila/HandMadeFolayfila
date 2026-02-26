@@ -59,15 +59,20 @@ internal void GameUpdateAndRender(game_input* Input,
 
     }
 
-    if(Input0->Down.EndedDown)
+    if(Input0->GamePadDown.EndedDown)
     {
         ColorXoffset += 1;
     }
+    if (Input0->GamePadUp.EndedDown)
+    {
+        ColorXoffset -= 1;
+    }
 
-    //Input.StartX;
-    //Input.MinX;
-    //Input.MaxX;
-    //Input.EndX;
+    // Quit game
+    if (Input0->GamePadRight.EndedDown)
+    {
+        GlobalRunning = false;
+    }
 
 
     GameOutputSound(SoundBuffer, ToneHz);

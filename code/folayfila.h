@@ -16,6 +16,8 @@ typedef int32_t bool32;
 
 #define ArrayCount(Array) (sizeof(Array) / sizeof((Array)[0]))
 
+global_variable bool32 GlobalRunning;
+
 struct vec2
 {
     float X;
@@ -56,10 +58,14 @@ struct game_controller_input
     {
         struct
         {
-            game_button_state Up;
-            game_button_state Down;
-            game_button_state Left;
-            game_button_state Right;
+            game_button_state DPadUp;
+            game_button_state DPadDown;
+            game_button_state DPaDLeft;
+            game_button_state DPadRight;
+            game_button_state GamePadUp;
+            game_button_state GamePadDown;
+            game_button_state GamePadLeft;
+            game_button_state GamePadRight;
             game_button_state LeftShoulder;
             game_button_state RightShoulder;
         };
