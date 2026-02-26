@@ -88,7 +88,7 @@ internal void Win32DisplayBufferInWindow(win32_offscreen_buffer* Buffer,
 
 /**************************** Sound *******************************/
 
-internal void Win32InitDSound(HWND Window, int32_t SamplesPerSeconds, int32_t BufferSize)
+internal void Win32InitDSound(HWND Window, int32 SamplesPerSeconds, int32 BufferSize)
 {
     // Load the DSound library.
     HMODULE DSoundLibrary = LoadLibraryA("dsound.dll");
@@ -154,13 +154,13 @@ internal void Win32ClearSoundBuffer(win32_sound_output* SoundOutput)
         &Region2, &Region2Size,
         0)))
     {
-        uint8_t* DestSample = (uint8_t*)Region1;
+        uint8* DestSample = (uint8*)Region1;
         for (DWORD ByteIndex = 0; ByteIndex < Region1Size; ++ByteIndex)
         {
             *DestSample++ = 0;
         }
 
-        DestSample = (uint8_t*)Region2;
+        DestSample = (uint8*)Region2;
         for (DWORD ByteIndex = 0; ByteIndex < Region2Size; ++ByteIndex)
         {
             *DestSample++ = 0;
@@ -183,8 +183,8 @@ internal void Win32FillSoundBuffer(win32_sound_output* SoundOutput, DWORD ByteTo
         0)))
     {
         DWORD Region1SampleCount = Region1Size / SoundOutput->BytesPerSample;
-        int16_t* SourceSample = SourceBuffer->Samples;
-        int16_t* DestSample = (int16_t*)Region1;
+        int16* SourceSample = SourceBuffer->Samples;
+        int16* DestSample = (int16*)Region1;
         for (DWORD SampleIndex = 0; SampleIndex < Region1SampleCount; ++SampleIndex)
         {
             *DestSample++ = *SourceSample++;
@@ -193,7 +193,7 @@ internal void Win32FillSoundBuffer(win32_sound_output* SoundOutput, DWORD ByteTo
         }
 
         DWORD Region2SampleCount = Region2Size / SoundOutput->BytesPerSample;
-        DestSample = (int16_t*)Region2;
+        DestSample = (int16*)Region2;
         for (DWORD SampleIndex = 0; SampleIndex < Region2SampleCount; ++SampleIndex)
         {
             *DestSample++ = *SourceSample++;
@@ -248,7 +248,7 @@ internal LRESULT CALLBACK Win32MainWindowCallback(HWND Window, UINT Message, WPA
         case WM_KEYDOWN:
         case WM_KEYUP:
         {
-            uint32_t VKCode = WParam;
+            uint32 VKCode = WParam;
             bool WasDown = ((LParam & (1 << 30)) != 0);
             bool IsDown = ((LParam & (1 << 31)) == 0);
             if (WasDown != IsDown)
@@ -384,13 +384,12 @@ internal void Win32HandleControllerInput(game_input* OldInput, game_input* NewIn
 }
 /******************************************************************/
 
-
 /**************************** WinMain *******************************/
 int CALLBACK WinMain( HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLine, int ShowCode)
 {
     LARGE_INTEGER PerfCountFrequencyResult;
     QueryPerformanceFrequency(&PerfCountFrequencyResult); // Fixed at system boot and consistent across all processors.
-    int64_t PerfCountFrequency = PerfCountFrequencyResult.QuadPart;
+    int64 PerfCountFrequency = PerfCountFrequencyResult.QuadPart;
 
     Win32ResizeDIBSection(&GlobalBackBuffer, 1280, 720);
 
@@ -424,14 +423,33 @@ int CALLBACK WinMain( HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandL
     win32_sound_output SoundOutput = {};
     SoundOutput.SamplesPerSecond = 48000;
     SoundOutput.RunningSampleIndex = 0;
-    SoundOutput.BytesPerSample = sizeof(int16_t) * 2;
+    SoundOutput.BytesPerSample = sizeof(int16) * 2;
     SoundOutput.SecondaryBufferSize = SoundOutput.SamplesPerSecond * SoundOutput.BytesPerSample;
     SoundOutput.LatencySampleCount = SoundOutput.SamplesPerSecond / 15;
     Win32InitDSound(Window, SoundOutput.SamplesPerSecond, SoundOutput.SecondaryBufferSize);
     Win32ClearSoundBuffer(&SoundOutput);
     GlobalSecondaryBuffer->Play(0, 0, DSBPLAY_LOOPING);
 
-    int16_t* Samples = (int16_t*)VirtualAlloc(0, SoundOutput.SecondaryBufferSize, MEM_COMMIT, PAGE_READWRITE);
+    int16* Samples = (int16*)VirtualAlloc(0, SoundOutput.SecondaryBufferSize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);;
+
+#if FOLAYFILA_INTERNAL
+    LPVOID BaseAddress = (LPVOID)Gigabytes((uint64)50);
+#else
+    LPVOID BaseAddress = 0;
+#endif  // FOLAYFILA_INTERNAL
+
+    game_memory GameMemory = {};
+    GameMemory.PermanentStorageSize = Megabytes(64);
+    GameMemory.TransientStorageSize = Gigabytes((uint64)4);
+    uint64 TotalSize = GameMemory.PermanentStorageSize + GameMemory.TransientStorageSize;
+    GameMemory.PermanentStorage = VirtualAlloc(BaseAddress, TotalSize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+    GameMemory.TransientStorage = ((uint8 *)GameMemory.PermanentStorage + GameMemory.PermanentStorageSize);
+
+    if (!Samples || !GameMemory.PermanentStorage || !GameMemory.TransientStorage)
+    {
+        // Can't run the game without memory.
+        return 0;
+    }
 
     Win32LoadXInput();
     game_input Input[2] = {};
@@ -440,7 +458,7 @@ int CALLBACK WinMain( HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandL
 
     LARGE_INTEGER LastCounter;
     QueryPerformanceCounter(&LastCounter);
-    uint64_t LastCycleCount = __rdtsc();
+    uint64 LastCycleCount = __rdtsc();
 
     // Main Loop
     GlobalRunning = true;
@@ -499,7 +517,7 @@ int CALLBACK WinMain( HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandL
         GraphicsBuffer.Width = GlobalBackBuffer.Width;
         GraphicsBuffer.Height = GlobalBackBuffer.Height;
         GraphicsBuffer.Pitch = GlobalBackBuffer.Pitch;
-        GameUpdateAndRender(NewInput, &GraphicsBuffer, &SoundBuffer);
+        GameUpdateAndRender(&GameMemory, NewInput, &GraphicsBuffer, &SoundBuffer);
 
         if (SoundIsValid)
         {
@@ -510,17 +528,17 @@ int CALLBACK WinMain( HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandL
         Win32DisplayBufferInWindow(&GlobalBackBuffer, DeviceContext, Deminsion.Width, Deminsion.Height);
 
         // Save cycle length
-        uint64_t EndCycleCount = __rdtsc();
+        uint64 EndCycleCount = __rdtsc();
         LARGE_INTEGER EndCounter;
         QueryPerformanceCounter(&EndCounter);
 
         // Display the time value here.
-        int64_t CyclesElapsed = EndCycleCount - LastCycleCount;
-        int32_t MegaCyclesPerFrame = (int32_t)(CyclesElapsed / (1000 * 1000));
+        int64 CyclesElapsed = EndCycleCount - LastCycleCount;
+        int32 MegaCyclesPerFrame = (int32)(CyclesElapsed / (1000 * 1000));
 
-        int64_t CounterElapsed = EndCounter.QuadPart - LastCounter.QuadPart;
-        int32_t MSPerFrame = (int32_t)((1000 * CounterElapsed) / PerfCountFrequency);
-        int32_t FPS = (int32_t)(PerfCountFrequency / CounterElapsed);
+        int64 CounterElapsed = EndCounter.QuadPart - LastCounter.QuadPart;
+        int32 MSPerFrame = (int32)((1000 * CounterElapsed) / PerfCountFrequency);
+        int32 FPS = (int32)(PerfCountFrequency / CounterElapsed);
 
         char LogBuffer[256];
         wsprintf(LogBuffer, "Milliseconds/frame: %d ms / %d FPS / %d MCPF\n", MSPerFrame, FPS, MegaCyclesPerFrame);

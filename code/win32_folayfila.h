@@ -25,7 +25,7 @@ struct win32_offscreen_buffer
 struct win32_sound_output
 {
     int SamplesPerSecond;
-    uint32_t RunningSampleIndex;
+    uint32 RunningSampleIndex;
     int BytesPerSample;
     int SecondaryBufferSize;
     float tSine;
