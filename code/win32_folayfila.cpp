@@ -1,57 +1,13 @@
 // (C) Copyright 2026 by Abdallah Maaliki / folayfila.
 
-#include <windows.h>
-#include <stdint.h>
+#include "win32_folayfila.h"
 #include <xinput.h>
 #include <dsound.h>
-#include <math.h>
-
-#define Pi32 3.141459265359f
-
-typedef int32_t bool32;
-typedef float real32;
-typedef double real64;
-
-#define internal static
-#define local_presist static
-#define global_variable static
-
-struct win32_offscreen_buffer
-{
-    BITMAPINFO Info;
-    void* Memory;
-    int Width;
-    int Height;
-    int Pitch;
-    int BytesPerPixel;
-};
-
-struct win32_window_deminsion
-{
-    int Width;
-    int Height;
-};
 
 // TODO(abdallah): Global for now.
 global_variable bool GlobalRunning;
 global_variable win32_offscreen_buffer GlobalBackBuffer;
 global_variable LPDIRECTSOUNDBUFFER GlobalSecondaryBuffer;
-global_variable int ColorXOffset = 0;
-global_variable int ColorYOffset = 0;
-
-struct win32_sound_output
-{
-    int SamplesPerSecond;
-    int ToneHz;
-    int ToneVolume;
-    uint32_t RunningSampleIndex;
-    int WavePeriod;
-    int BytesPerSample;
-    int SecondaryBufferSize;
-    real32 tSine;
-    int LatencySampleCount;
-};
-global_variable win32_sound_output SoundOutput = {};
 
 // Note(abd): This is our support for XInputGetState.
 #define X_INPUT_GET_STATE(name) DWORD WINAPI name(DWORD dwUserIndex, XINPUT_STATE *pState)
@@ -180,26 +136,6 @@ internal void Win32InitDSound(HWND Window, int32_t SamplesPerSeconds, int32_t Bu
     }
 }
 
-internal void RenderAwesomeGradient(win32_offscreen_buffer *Buffer, int XOffset, int YOffset)
-{
-    uint8_t* Row = (uint8_t*)Buffer->Memory;
-    for (int Y = 0; Y < Buffer->Height; ++Y)
-    {
-        uint32_t* Pixel = (uint32_t*)Row;
-        for (int X = 0; X < Buffer->Width; ++X)
-        {
-
-            uint8_t Blue = (uint8_t)(X + XOffset);
-            uint8_t Green = (uint8_t)(Y + YOffset);
-            uint8_t Red = 100;
-
-            // Memory: BB GG RR xx
-            *Pixel++ = (Blue | Green << 8 | Red << 16);
-        }
-        Row += Buffer->Pitch;
-    }
-}
-
 // We create a buffer for our content that we want to display, then we pass it to windows to paint it when we want.
 internal void Win32ResizeDIBSection(win32_offscreen_buffer* Buffer, int Width, int Height)    // DIB: Devise Independent Bitmap
 {
@@ -261,41 +197,28 @@ internal LRESULT CALLBACK Win32MainWindowCallback(HWND Window, UINT Message, WPA
         case WM_SYSKEYDOWN:
         case WM_SYSKEYUP:
         case WM_KEYDOWN:
-        {
-            uint32_t VKCode = WParam;
-            if (VKCode == 'Q')
-            {
-                SoundOutput.ToneHz -= 100;
-                SoundOutput.WavePeriod = SoundOutput.SamplesPerSecond / SoundOutput.ToneHz;
-            }
-            else if (VKCode == 'E')
-            {
-                SoundOutput.ToneHz += 100;
-                SoundOutput.WavePeriod = SoundOutput.SamplesPerSecond / SoundOutput.ToneHz;
-            }
-        }
         case WM_KEYUP:
         {
             uint32_t VKCode = WParam;
             bool WasDown = ((LParam & (1 << 30)) != 0);
             bool IsDown = ((LParam & (1 << 31)) == 0);
-            //if (WasDown != IsDown)
+            if (WasDown != IsDown)
             {
                 if (VKCode == 'W')
                 {
-                    ColorYOffset-=10;
+                    //YOffset-=10;
                 }
                 else if (VKCode == 'S')
                 {
-                    ColorYOffset+=10;
+                    //YOffset+=10;
                 }
                 else if (VKCode == 'A')
                 {
-                    ColorXOffset+=10;
+                    //XOffset+=10;
                 }
                 else if (VKCode == 'D')
                 {
-                    ColorXOffset-=10;
+                    //XOffset-=10;
                 }
                 else if (VKCode == 'Q')
                 {
@@ -349,73 +272,108 @@ internal LRESULT CALLBACK Win32MainWindowCallback(HWND Window, UINT Message, WPA
     return Result;
 }
 
-internal void Win32HandleControllerInput()
+internal void Win32ProcessXinputDigitalButton(DWORD XInputButtonState,
+                                              game_button_state* OldState, DWORD ButtonBit,
+                                              game_button_state* NewState)
 {
-    for (DWORD ControllerIndex = 0; ControllerIndex < XUSER_MAX_COUNT; ++ControllerIndex)
+    NewState->EndedDown = ((XInputButtonState & ButtonBit) == ButtonBit);
+    NewState->HalfTransitionCount = (OldState->EndedDown != NewState->EndedDown) ? 1 : 0;
+}
+
+internal void Win32HandleControllerInput(game_input* OldInput, game_input* NewInput)
+{
+    int MaxControllerCount = XUSER_MAX_COUNT;
+    if (MaxControllerCount > ArrayCount(NewInput->Controllers))
+    {
+        MaxControllerCount = ArrayCount(NewInput->Controllers);
+    }
+
+    for (DWORD ControllerIndex = 0; ControllerIndex < MaxControllerCount; ++ControllerIndex)
     {
         XINPUT_STATE ControllerState;
         if (XInputGetState(ControllerIndex, &ControllerState) == ERROR_SUCCESS)
         {
+            game_controller_input* OldController = &OldInput->Controllers[ControllerIndex];
+            game_controller_input* NewController = &NewInput->Controllers[ControllerIndex];
+
             // This controller is pluged in.
             XINPUT_GAMEPAD* Pad = &ControllerState.Gamepad;
 
-            bool Up = (Pad->wButtons & XINPUT_GAMEPAD_DPAD_UP);
-            bool Down = (Pad->wButtons & XINPUT_GAMEPAD_DPAD_DOWN);
-            bool Left = (Pad->wButtons & XINPUT_GAMEPAD_DPAD_LEFT);
-            bool Right = (Pad->wButtons & XINPUT_GAMEPAD_DPAD_RIGHT);
-            bool Start = (Pad->wButtons & XINPUT_GAMEPAD_START);
-            bool Back = (Pad->wButtons & XINPUT_GAMEPAD_BACK);
-            bool LeftShoulder = (Pad->wButtons & XINPUT_GAMEPAD_LEFT_SHOULDER);
-            bool RightShoulder = (Pad->wButtons & XINPUT_GAMEPAD_RIGHT_SHOULDER);
-            bool AButton = (Pad->wButtons & XINPUT_GAMEPAD_A);
-            bool BButton = (Pad->wButtons & XINPUT_GAMEPAD_B);
-            bool XButton = (Pad->wButtons & XINPUT_GAMEPAD_X);
-            bool YButton = (Pad->wButtons & XINPUT_GAMEPAD_Y);
+            float X;
+            if (Pad->sThumbLX < 0)
+            {
+                X = (float)Pad->sThumbLX / 32768.0f;
+            }
+            else
+            {
+                X = (float)Pad->sThumbLX / 32768.0f;
+            }
+            float Y;
+            if (Pad->sThumbLY < 0)
+            {
+                Y = (float)Pad->sThumbLY / 32768.0f;
+            }
+            else
+            {
+                Y = (float)Pad->sThumbLY / 32768.0f;
+            }
 
-            int16_t StickX = Pad->sThumbLX;
-            int16_t StickY = Pad->sThumbLY;
+            NewController->IsAnalog = true;
+            NewController->Start.X = OldController->Start.X;
+            NewController->Start.Y = OldController->Start.Y;
 
-            ColorXOffset += StickX / 4096;
-            ColorYOffset += StickY / 4096;
+            NewController->Min.X = NewController->Max.X = NewController->End.X = X;
+            NewController->Min.Y = NewController->Max.Y = NewController->End.Y = Y;
+
+            // Gamepad Buttons
+            Win32ProcessXinputDigitalButton(Pad->wButtons,
+                                            &OldController->Down, XINPUT_GAMEPAD_A,
+                                            &NewController->Down);
+            Win32ProcessXinputDigitalButton(Pad->wButtons,
+                                            &OldController->Right, XINPUT_GAMEPAD_B,
+                                            &NewController->Right);
+            Win32ProcessXinputDigitalButton(Pad->wButtons,
+                                            &OldController->Left, XINPUT_GAMEPAD_X,
+                                            &NewController->Left);
+            Win32ProcessXinputDigitalButton(Pad->wButtons,
+                                            &OldController->Up, XINPUT_GAMEPAD_Y,
+                                            &NewController->Up);
+            // Shoulder Buttons
+            Win32ProcessXinputDigitalButton(Pad->wButtons,
+                                            &OldController->RightShoulder, XINPUT_GAMEPAD_RIGHT_SHOULDER,
+                                            &NewController->RightShoulder);
+            Win32ProcessXinputDigitalButton(Pad->wButtons,
+                                            &OldController->LeftShoulder, XINPUT_GAMEPAD_LEFT_SHOULDER,
+                                            &NewController->LeftShoulder);
+
+            //// Start and Back
+            // Win32ProcessXinputDigitalButton(Pad->wButtons,
+            //                                OldController->State, XINPUT_GAMEPAD_START,
+            //                                NewController->State);
+            // Win32ProcessXinputDigitalButton(Pad->wButtons,
+            //                                OldController->State, XINPUT_GAMEPAD_BACK,
+            //                                NewController->State);
+            //// DPad
+            //Win32ProcessXinputDigitalButton(Pad->wButtons,
+            //                                OldController->State, XINPUT_GAMEPAD_DPAD_UP,
+            //                                NewController->State);
+            //Win32ProcessXinputDigitalButton(Pad->wButtons,
+            //                                OldController->State, XINPUT_GAMEPAD_DPAD_DOWN,
+            //                                NewController->State);
+            //Win32ProcessXinputDigitalButton(Pad->wButtons,
+            //                                OldController->State, XINPUT_GAMEPAD_DPAD_LEFT,
+            //                                NewController->State);
+            //Win32ProcessXinputDigitalButton(Pad->wButtons,
+            //                                OldController->State, XINPUT_GAMEPAD_DPAD_RIGHT,
+            //                                NewController->State);
 
             XINPUT_VIBRATION Vibration;
             Vibration.wLeftMotorSpeed = 50000;
             Vibration.wRightMotorSpeed = 50000;
-
-            SoundOutput.ToneHz = 512 + (int)(256.0f * ((real32)StickX / 30000.0f));
-            SoundOutput.WavePeriod = SoundOutput.SamplesPerSecond / SoundOutput.ToneHz;
-
-            if (Up)
-            {
-                ColorYOffset--;
-                XInputSetState(0, &Vibration);
-            }
-            else if (Down)
-            {
-                ColorYOffset++;
-                XInputSetState(0, &Vibration);
-            }
-            else if (Left)
-            {
-                ColorXOffset--;
-                XInputSetState(0, &Vibration);
-            }
-            else if (Right)
-            {
-                ColorXOffset++;
-                XInputSetState(0, &Vibration);
-            }
-            else if (BButton)
-            {
-                GlobalRunning = false;
-            }
-            else
-            {
-                XINPUT_VIBRATION ZeroVibration;
-                ZeroVibration.wLeftMotorSpeed = 0;
-                ZeroVibration.wRightMotorSpeed = 0;
-                XInputSetState(0, &ZeroVibration);
-            }
+            /*XINPUT_VIBRATION ZeroVibration;
+            ZeroVibration.wLeftMotorSpeed = 0;
+            ZeroVibration.wRightMotorSpeed = 0;
+            XInputSetState(0, &ZeroVibration);*/
         }
         else
         {
@@ -424,9 +382,35 @@ internal void Win32HandleControllerInput()
     }
 }
 
+internal void Win32ClearSoundBuffer(win32_sound_output* SoundOutput)
+{
+    VOID* Region1;
+    DWORD Region1Size;
+    VOID* Region2;
+    DWORD Region2Size;
+    if (SUCCEEDED(GlobalSecondaryBuffer->Lock(0, SoundOutput->SecondaryBufferSize,
+        &Region1, &Region1Size,
+        &Region2, &Region2Size,
+        0)))
+    {
+        uint8_t* DestSample = (uint8_t*)Region1;
+        for (DWORD ByteIndex = 0; ByteIndex < Region1Size; ++ByteIndex)
+        {
+            *DestSample++ = 0;
+        }
+        
+        DestSample = (uint8_t*)Region2;
+        for (DWORD ByteIndex = 0; ByteIndex < Region2Size; ++ByteIndex)
+        {
+            *DestSample++ = 0;
+        }
 
+        GlobalSecondaryBuffer->Unlock(Region1, Region1Size, Region2, Region2Size);
+    }
+}
 
-internal void Win32FillSoundBuffer(win32_sound_output* SoundOutput, DWORD ByteToLock, DWORD BytesToWrite)
+internal void Win32FillSoundBuffer(win32_sound_output* SoundOutput, DWORD ByteToLock, DWORD BytesToWrite,
+                                   game_output_sound_buffer* SourceBuffer)
 {
     VOID* Region1;
     DWORD Region1Size;
@@ -438,31 +422,23 @@ internal void Win32FillSoundBuffer(win32_sound_output* SoundOutput, DWORD ByteTo
         0)))
     {
         DWORD Region1SampleCount = Region1Size / SoundOutput->BytesPerSample;
-        int16_t* SampleOut = (int16_t*)Region1;
+        int16_t* SourceSample = SourceBuffer->Samples;
+        int16_t* DestSample = (int16_t*)Region1;
         for (DWORD SampleIndex = 0; SampleIndex < Region1SampleCount; ++SampleIndex)
         {
-            real32 SineValue = sinf(SoundOutput->tSine);
-            int16_t SampleValue = (int16_t)(SineValue * SoundOutput->ToneVolume);
-            *SampleOut++ = SampleValue;
-            *SampleOut++ = SampleValue;
-
-            SoundOutput->tSine += 2.0f*Pi32*1.0f / (real32)SoundOutput->WavePeriod;
+            *DestSample++ = *SourceSample++;
+            *DestSample++ = *SourceSample++;
             ++SoundOutput->RunningSampleIndex;
         }
 
         DWORD Region2SampleCount = Region2Size / SoundOutput->BytesPerSample;
-        SampleOut = (int16_t*)Region2;
+        DestSample = (int16_t*)Region2;
         for (DWORD SampleIndex = 0; SampleIndex < Region2SampleCount; ++SampleIndex)
         {
-            real32 SineValue = sinf(SoundOutput->tSine);
-            int16_t SampleValue = (int16_t)(SineValue * SoundOutput->ToneVolume);
-            *SampleOut++ = SampleValue;
-            *SampleOut++ = SampleValue;
-
-            SoundOutput->tSine += 2.0f*Pi32*1.0f / (real32)SoundOutput->WavePeriod;
+            *DestSample++ = *SourceSample++;
+            *DestSample++ = *SourceSample++;
             ++SoundOutput->RunningSampleIndex;
         }
-
         GlobalSecondaryBuffer->Unlock(Region1, Region1Size, Region2, Region2Size);
     }
 }
@@ -513,22 +489,25 @@ int CALLBACK WinMain(
             // context and use it forever as we're not sharing it with anyone.
             HDC DeviceContext = GetDC(Window);
 
-
+            win32_sound_output SoundOutput = {};
             SoundOutput.SamplesPerSecond = 48000;
-            SoundOutput.ToneHz = 256;
-            SoundOutput.ToneVolume = 5000;
             SoundOutput.RunningSampleIndex = 0;
-            SoundOutput.WavePeriod = SoundOutput.SamplesPerSecond / SoundOutput.ToneHz;
             SoundOutput.BytesPerSample = sizeof(int16_t) * 2;
             SoundOutput.SecondaryBufferSize = SoundOutput.SamplesPerSecond * SoundOutput.BytesPerSample;
             SoundOutput.LatencySampleCount = SoundOutput.SamplesPerSecond / 15;
             Win32InitDSound(Window, SoundOutput.SamplesPerSecond, SoundOutput.SecondaryBufferSize);
-            Win32FillSoundBuffer(&SoundOutput, 0, SoundOutput.LatencySampleCount*SoundOutput.BytesPerSample);
-            //GlobalSecondaryBuffer->Play(0, 0, DSBPLAY_LOOPING);
+            Win32ClearSoundBuffer(&SoundOutput);
+            GlobalSecondaryBuffer->Play(0, 0, DSBPLAY_LOOPING);
+
+            int16_t* Samples = (int16_t*)VirtualAlloc(0, SoundOutput.SecondaryBufferSize,
+                                                      MEM_COMMIT, PAGE_READWRITE);
+
+            game_input Input[2] = {};
+            game_input* NewInput = &Input[0];
+            game_input* OldInput = &Input[1];
 
             LARGE_INTEGER LastCounter;
             QueryPerformanceCounter(&LastCounter);
-
             uint64_t LastCycleCount = __rdtsc();
 
             GlobalRunning = true;
@@ -547,22 +526,26 @@ int CALLBACK WinMain(
                     DispatchMessageA(&Message);
                 }
 
-                // TODO(abd): Should we pull this more frequently?
-                Win32HandleControllerInput();
+                // Handle Input
+                Win32HandleControllerInput(OldInput, NewInput);
 
-                RenderAwesomeGradient(&GlobalBackBuffer, ColorXOffset, ColorYOffset);
-
+                DWORD ByteToLock;
+                DWORD TargetCursor;
+                DWORD BytesToWrite;
                 DWORD PlayCursor;
                 DWORD WriteCursor;
+                bool32 SoundIsValid = false;
                 if (SUCCEEDED(GlobalSecondaryBuffer->GetCurrentPosition(&PlayCursor, &WriteCursor)))
                 {
                     // NOTE(abdallah): DirectSound output test
-                    DWORD ByteToLock = (SoundOutput.RunningSampleIndex * SoundOutput.BytesPerSample) % SoundOutput.SecondaryBufferSize;
+                    ByteToLock = (SoundOutput.RunningSampleIndex * SoundOutput.BytesPerSample) %
+                        SoundOutput.SecondaryBufferSize;
 
-                    DWORD TargetCursor = ((PlayCursor +
-                                          (SoundOutput.LatencySampleCount*SoundOutput.BytesPerSample)) %
-                                           SoundOutput.SecondaryBufferSize);
-                    DWORD BytesToWrite;
+                    TargetCursor = ((PlayCursor +
+                        (SoundOutput.LatencySampleCount * SoundOutput.BytesPerSample)) %
+                        SoundOutput.SecondaryBufferSize);
+
+                    BytesToWrite;
                     if (ByteToLock > TargetCursor)
                     {
                         BytesToWrite = (SoundOutput.SecondaryBufferSize - ByteToLock);
@@ -573,14 +556,30 @@ int CALLBACK WinMain(
                         BytesToWrite = TargetCursor - ByteToLock;
                     }
 
-                    Win32FillSoundBuffer(&SoundOutput, ByteToLock, BytesToWrite);
+                    SoundIsValid = true;
+                }
+
+                game_output_sound_buffer SoundBuffer = {};
+                SoundBuffer.SamplesPerSecond = SoundOutput.SamplesPerSecond;
+                SoundBuffer.SampleCount = BytesToWrite / SoundOutput.BytesPerSample;
+                SoundBuffer.Samples = Samples;
+
+                game_graphics_buffer GraphicsBuffer = {};
+                GraphicsBuffer.Memory = GlobalBackBuffer.Memory;
+                GraphicsBuffer.Width = GlobalBackBuffer.Width;
+                GraphicsBuffer.Height = GlobalBackBuffer.Height;
+                GraphicsBuffer.Pitch = GlobalBackBuffer.Pitch;
+                GameUpdateAndRender(NewInput, &GraphicsBuffer, &SoundBuffer);
+
+                if (SoundIsValid)
+                {
+                    Win32FillSoundBuffer(&SoundOutput, ByteToLock, BytesToWrite, &SoundBuffer);
                 }
 
                 win32_window_deminsion Deminsion = Win32GetWindowDeminsion(Window);
                 Win32DisplayBufferInWindow(&GlobalBackBuffer, DeviceContext, Deminsion.Width, Deminsion.Height);
 
                 uint64_t EndCycleCount = __rdtsc();
-
                 LARGE_INTEGER EndCounter;
                 QueryPerformanceCounter(&EndCounter);
 
@@ -592,12 +591,16 @@ int CALLBACK WinMain(
                 int32_t MSPerFrame = (int32_t)((1000*CounterElapsed) / PerfCountFrequency);
                 int32_t FPS = (int32_t)(PerfCountFrequency / CounterElapsed);
 
-                char Buffer[256];
-                wsprintf(Buffer, "Milliseconds/frame: %d ms / %d FPS / %d MCPF\n", MSPerFrame, FPS, MegaCyclesPerFrame);
-                OutputDebugStringA(Buffer);
+                char LogBuffer[256];
+                wsprintf(LogBuffer, "Milliseconds/frame: %d ms / %d FPS / %d MCPF\n", MSPerFrame, FPS, MegaCyclesPerFrame);
+                OutputDebugStringA(LogBuffer);
 
                 LastCycleCount = EndCycleCount;
                 LastCounter = EndCounter;
+
+                game_input* Temp = NewInput;
+                NewInput = OldInput;
+                OldInput = Temp;
             }
         }
         else
