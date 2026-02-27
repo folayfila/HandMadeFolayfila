@@ -29,6 +29,65 @@ global_variable x_input_set_state *XInputSetState_ = XInputSetStateStub;
 #define XInputSetState XInputSetState_
 /******************************************************************/
 
+/************************** I/O ************************************/
+internal debug_read_file_result DEBUGPlatformReadEntireFile(char* FileName)
+{
+    debug_read_file_result Result = {};
+
+    HANDLE FileHandle = CreateFileA(FileName, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0);
+    if (FileHandle != INVALID_HANDLE_VALUE)
+    {
+        LARGE_INTEGER FileSize;
+        if (GetFileSizeEx(FileHandle, &FileSize))
+        {
+            uint32 FileSize32 = SafeTruncateUInt64((uint64)FileSize.QuadPart);
+            Result.Contents = VirtualAlloc(0, FileSize32, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+            if (Result.Contents)
+            {
+                DWORD BytesRead;
+                if (ReadFile(FileHandle, Result.Contents, FileSize32, &BytesRead, 0) &&
+                    (FileSize32 == BytesRead))
+                {
+                    Result.ContentSize = FileSize32;
+                }
+                else
+                {
+                    DEBUGPlatformFreeFileMemory(Result.Contents);
+                    Result.Contents = 0;
+                }
+            }
+        }
+        CloseHandle(FileHandle);
+    }
+    return Result;
+}
+
+internal void DEBUGPlatformFreeFileMemory(void* Memeory)
+{
+    if (Memeory)
+    {
+        VirtualFree(Memeory, 0, MEM_RELEASE);
+    }
+}
+
+internal bool32 DEBUGPlatformWriteEntireFile(char* FileName, uint32 MemorySize, void* Memory)
+{
+    bool32 Result = false;
+
+    HANDLE FileHandle = CreateFileA(FileName, GENERIC_WRITE, 0, 0, CREATE_ALWAYS, 0, 0);
+    if (FileHandle != INVALID_HANDLE_VALUE)
+    {
+        DWORD BytesWritten;
+        if (WriteFile(FileHandle, Memory, MemorySize, &BytesWritten, 0))
+        {
+            Result = (BytesWritten == MemorySize);
+        }
+        CloseHandle(FileHandle);
+    }
+    return Result;
+}
+/******************************************************************/
+
 /******************* DirectSound Defines *****************************/
 #define DIRECT_SOUND_CREATE(name) HRESULT WINAPI name(LPCGUID pcGuidDevice, LPDIRECTSOUND* ppDS, LPUNKNOWN pUnkOuter);
 typedef DIRECT_SOUND_CREATE(direct_sound_create);
@@ -433,7 +492,7 @@ int CALLBACK WinMain( HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandL
     int16* Samples = (int16*)VirtualAlloc(0, SoundOutput.SecondaryBufferSize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);;
 
 #if FOLAYFILA_INTERNAL
-    LPVOID BaseAddress = (LPVOID)Gigabytes((uint64)50);
+    LPVOID BaseAddress = (LPVOID)Gigabytes((uint64)4);
 #else
     LPVOID BaseAddress = 0;
 #endif  // FOLAYFILA_INTERNAL
@@ -443,7 +502,7 @@ int CALLBACK WinMain( HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandL
     GameMemory.TransientStorageSize = Gigabytes((uint64)4);
     uint64 TotalSize = GameMemory.PermanentStorageSize + GameMemory.TransientStorageSize;
     GameMemory.PermanentStorage = VirtualAlloc(BaseAddress, TotalSize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
-    GameMemory.TransientStorage = ((uint8 *)GameMemory.PermanentStorage + GameMemory.PermanentStorageSize);
+    GameMemory.TransientStorage = ((uint8*)GameMemory.PermanentStorage + GameMemory.PermanentStorageSize);
 
     if (!Samples || !GameMemory.PermanentStorage || !GameMemory.TransientStorage)
     {

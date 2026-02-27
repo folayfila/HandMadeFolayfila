@@ -35,11 +35,24 @@ typedef int32 bool32;
 *   0 - No slow code allowed.
 *   1 - Slow code welcome.
 */
+
 #if FOLAYFILA_SLOW
 #define Assert(Expression) if(!(Expression)) {*(int *)0 = 0;}
 #else
 #define Assert(Expression)
 #endif  // FOLAYFILA_SLOW
+
+#if FOLAYFILA_INTERNAL
+// IMPORTANT: These are not for shipping!
+struct debug_read_file_result
+{
+    uint32 ContentSize;
+    void* Contents;
+};
+internal debug_read_file_result DEBUGPlatformReadEntireFile(char *FileName);
+internal void DEBUGPlatformFreeFileMemory(void *Memeory);
+internal bool32 DEBUGPlatformWriteEntireFile(char *FileName, uint32 MemorySize, void *Memory);
+#endif  // FOLAYFILA_INTERNAL
 
 #define Pi32 3.141459265359f
 
@@ -48,6 +61,13 @@ typedef int32 bool32;
 #define Gigabytes(Value) (Megabytes(Value) * 1024)
 
 #define ArrayCount(Array) (sizeof(Array) / sizeof((Array)[0]))
+
+inline uint32 SafeTruncateUInt64(uint64 Value)
+{
+    Assert(Value <= 0xffffffff);
+    return ((uint32)Value);
+}
+
 /**************************************/
 
 /************** globals ***************/
@@ -127,12 +147,12 @@ struct game_memory
 
 struct game_clocks
 {
-    float DeltaTime
+    float DeltaTime;
 };
 
 /**************************************/
 
-internal void GameUpdateAndRender(game_memory* Memory, game_input* Input,
+internal void GameUpdateAndRender(game_memory* GameMemory, game_input* Input,
     game_graphics_buffer* GraphicsBuffer,
     game_output_sound_buffer* SoundBuffer);
 
