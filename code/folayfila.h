@@ -43,7 +43,7 @@ typedef int32 bool32;
 #endif  // FOLAYFILA_SLOW
 
 #if FOLAYFILA_INTERNAL
-// IMPORTANT: These are not for shipping!
+//! IMPORTANT: These are not for shipping!
 struct debug_read_file_result
 {
     uint32 ContentSize;
@@ -104,35 +104,46 @@ struct game_button_state
 
 struct game_controller_input
 {
+    bool32 IsConnected;
     bool32 IsAnalog;
-
-    vec2 Start;
-    vec2 Min;
-    vec2 Max;
-    vec2 End;
+    vec2 StickAverage;
 
     union
     {
+        game_button_state Buttons[12];
         struct
         {
-            game_button_state DPadUp;
-            game_button_state DPadDown;
-            game_button_state DPaDLeft;
-            game_button_state DPadRight;
-            game_button_state GamePadUp;
-            game_button_state GamePadDown;
-            game_button_state GamePadLeft;
-            game_button_state GamePadRight;
+            game_button_state MoveUp;
+            game_button_state MoveDown;
+            game_button_state MoveLeft;
+            game_button_state MoveRight;
+
+            game_button_state ActionUp;
+            game_button_state ActionDown;
+            game_button_state ActionLeft;
+            game_button_state ActionRight;
+            
             game_button_state LeftShoulder;
             game_button_state RightShoulder;
+
+            game_button_state Start;
+            game_button_state Back;
+
+            //? All buttons must be added above this one.
+            game_button_state Terminator;
         };
     };
 };
 
 struct game_input
 {
-    game_controller_input Controllers[4];
+    game_controller_input Controllers[5];
 };
+inline game_controller_input* GetController(game_input *Input, int ControllerIndex)
+{ 
+    Assert(ControllerIndex < ArrayCount(Input->Controllers));
+    return &Input->Controllers[ControllerIndex];
+}
 
 struct game_memory
 {
@@ -162,8 +173,8 @@ internal void GameUpdateAndRender(game_memory* GameMemory, game_input* Input,
 /// 
 struct game_state
 {
-    int ColorXoffset;
-    int ColorYoffset;
+    float ColorXoffset;
+    float ColorYoffset;
     int ToneHz;
 };
 

@@ -20,7 +20,7 @@ internal void GameOutputSound(game_output_sound_buffer* SoundBuffer, int ToneHz)
     }
 }
 
-internal void DisplayAwesomeGradient(game_graphics_buffer* Buffer, int XOffset, int YOffset)
+internal void DisplayAwesomeGradient(game_graphics_buffer* Buffer, float XOffset, float YOffset)
 {
     uint8* Row = (uint8*)Buffer->Memory;
     for (int Y = 0; Y < Buffer->Height; ++Y)
@@ -44,6 +44,8 @@ internal void GameUpdateAndRender(game_memory* GameMemory, game_input* Input,
                                   game_graphics_buffer* GraphicsBuffer,
                                   game_output_sound_buffer* SoundBuffer)
 {
+    Assert((&Input->Controllers[0].Terminator - &Input->Controllers[0].Buttons[0]) == 
+           (ArrayCount(Input->Controllers[0].Buttons)));
     Assert(sizeof(game_state) <= GameMemory->PermanentStorageSize);
 
     game_state* GameState = (game_state*)GameMemory->PermanentStorage;
@@ -55,40 +57,63 @@ internal void GameUpdateAndRender(game_memory* GameMemory, game_input* Input,
         debug_read_file_result File = DEBUGPlatformReadEntireFile(FileName);
         if (File.Contents)
         {
-            DEBUGPlatformWriteEntireFile("Skibidi.out", File.ContentSize, File.Contents);
-            DEBUGPlatformFreeFileMemory(File.Contents);
+           DEBUGPlatformWriteEntireFile("Skibidi.out", File.ContentSize, File.Contents);
+           DEBUGPlatformFreeFileMemory(File.Contents);
         }
 
         GameState->ToneHz = 256;
         GameMemory->IsInitialized = true;
     }
 
-    game_controller_input* Input0 = &Input->Controllers[0];
-    if (Input0->IsAnalog)
+    for (int ControllerIndex = 0; ControllerIndex < ArrayCount(Input->Controllers); ++ControllerIndex)
     {
-        GameState->ToneHz = 256 + (int)(128.0f * (Input0->End.X));
-        GameState->ColorYoffset += (int)(4.0f * (Input0->End.Y));
-    }
-    else
-    {
+        game_controller_input* ControllerInput = GetController(Input, ControllerIndex);
 
-    }
+        if (!ControllerInput->IsConnected)
+        {
+            continue;
+        }
 
-    if(Input0->GamePadDown.EndedDown)
-    {
-        GameState->ColorXoffset += 1;
-    }
-    if (Input0->GamePadUp.EndedDown)
-    {
-        GameState->ColorXoffset -= 1;
-    }
+        if (ControllerInput->IsAnalog)
+        {
+            GameState->ToneHz = 256 + (int)(128.0f * (ControllerInput->StickAverage.X));
+        }
 
-    // Quit game
-    if (Input0->GamePadRight.EndedDown)
-    {
-        GlobalRunning = false;
-    }
+        GameState->ColorXoffset += ControllerInput->StickAverage.X;
+        GameState->ColorYoffset += ControllerInput->StickAverage.Y;
 
+        if (ControllerInput->MoveDown.EndedDown)
+        {
+            GameState->ColorYoffset += 1.0f;
+        }
+        if (ControllerInput->MoveUp.EndedDown)
+        {
+            GameState->ColorYoffset -= 1.0f;
+        }
+        if (ControllerInput->MoveRight.EndedDown)
+        {
+            GameState->ColorXoffset += 1.0f;
+        }
+        if (ControllerInput->MoveLeft.EndedDown)
+        {
+            GameState->ColorXoffset -= 1.0f;
+        }
+
+        if (ControllerInput->RightShoulder.EndedDown)
+        {
+            GameState->ColorXoffset += 1000.0f;
+        }
+        if (ControllerInput->LeftShoulder.EndedDown)
+        {
+            GameState->ColorXoffset -= 1000.0f;
+        }
+
+        // Quit game
+        if (ControllerInput->Back.EndedDown)
+        {
+            GlobalRunning = false;
+        }
+    }
     GameOutputSound(SoundBuffer, GameState->ToneHz);
     DisplayAwesomeGradient(GraphicsBuffer, GameState->ColorXoffset, GameState->ColorYoffset);
 }
