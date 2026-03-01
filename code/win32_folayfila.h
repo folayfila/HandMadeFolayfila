@@ -32,4 +32,10 @@ struct win32_sound_output
     int LatencySampleCount;
 };
 
+struct win32_debug_time_marker
+{
+    DWORD PlayCursor;
+    DWORD WriteCursor;
+};
+
 #endif  // WIN32_FOLAYFILA
