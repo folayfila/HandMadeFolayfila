@@ -12,20 +12,29 @@ global_variable int64 GlobalPerfCountFrequency;
 /******************************************************************/
 
 /******************* Game Code *****************************/
-struct win32_game_code
+internal FILETIME Win32GetLastWriteTime(char* FileName)
 {
-    HMODULE GameCodeDLL;
-    game_update_and_render* UpdateAndRender;
-    bool IsValid;
-};
-internal win32_game_code Win32LoadGameCode()
+    FILETIME LastWriteTime = {};
+
+    WIN32_FIND_DATA FindData;
+    HANDLE FindHandle = FindFirstFileA(FileName, &FindData);
+    if(FindHandle != INVALID_HANDLE_VALUE)
+    {
+        LastWriteTime = FindData.ftLastWriteTime;
+        FindClose(FindHandle);
+    }
+
+    return LastWriteTime;
+}
+
+internal win32_game_code Win32LoadGameCode(char* SourceDLLName, char* TempDLLName)
 {
     win32_game_code Result;
     
-    CopyFile("folayfila.dll", "folayfila_temp.dll", FALSE);
-    Result.GameCodeDLL = LoadLibraryA("folayfila_temp.dll");
+    Result.DLLLastWriteTime = Win32GetLastWriteTime(SourceDLLName);
 
-    Result.GameCodeDLL = LoadLibraryA("folayfila.dll");
+    CopyFile(SourceDLLName, TempDLLName, FALSE);
+    Result.GameCodeDLL = LoadLibraryA(TempDLLName);
     if (Result.GameCodeDLL)
     {
         Result.UpdateAndRender = (game_update_and_render*)GetProcAddress(Result.GameCodeDLL, "GameUpdateAndRender");
@@ -643,8 +652,50 @@ inline float Win32GetSecondsElapsed(LARGE_INTEGER Start, LARGE_INTEGER End)
 }
 
 /**************************** WinMain *******************************/
+
+internal void CatStrings(size_t SourceACount, char * SourceA,
+                         size_t SourceBCount, char * SourceB,
+                         size_t DestCount, char * Dest)
+{
+    for(int Index = 0; Index < SourceACount; ++Index)
+    {
+        *Dest++ = *SourceA++;
+    }
+    
+    for(int Index = 0; Index < SourceBCount; ++Index)
+    {
+        *Dest++ = *SourceB++;
+    }
+
+    *Dest++ = 0;
+}
+
+
 int CALLBACK WinMain( HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLine, int ShowCode)
 {
+    char EXEFileName[MAX_PATH];
+    DWORD SizeOfFilename = GetModuleFileNameA(0, EXEFileName, sizeof(EXEFileName));
+    char* OnePastLastSlash = EXEFileName;
+    for(char* Scan = EXEFileName; *Scan; ++Scan)
+    {
+        if(*Scan == '\\')
+        {
+            OnePastLastSlash = Scan + 1;
+        }
+    }
+
+    char SourceGameCodeDLLFileName[] = "folayfila.dll";
+    char SourceGameCodeDLLFullPath[MAX_PATH];
+    CatStrings(OnePastLastSlash - EXEFileName, EXEFileName,
+        sizeof(SourceGameCodeDLLFileName) - 1, SourceGameCodeDLLFileName,
+        sizeof(SourceGameCodeDLLFullPath), SourceGameCodeDLLFullPath);
+
+    char TempGameCodeDLLFileName[] = "folayfila_temp.dll";
+    char TempGameCodeDLLFullPath[MAX_PATH];
+    CatStrings(OnePastLastSlash - EXEFileName, EXEFileName,
+        sizeof(TempGameCodeDLLFileName) - 1, TempGameCodeDLLFileName,
+        sizeof(TempGameCodeDLLFullPath), TempGameCodeDLLFullPath);
+
     LARGE_INTEGER PerfCountFrequencyResult;
     QueryPerformanceFrequency(&PerfCountFrequencyResult);  // Fixed at system boot and consistent across all processors.
     GlobalPerfCountFrequency = PerfCountFrequencyResult.QuadPart;
@@ -738,17 +789,17 @@ int CALLBACK WinMain( HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandL
     DWORD LastPlayCursor = 0;
     bool32 SoundIsValid = false;
 
-    win32_game_code Game = Win32LoadGameCode();
-    int timer = 0;
+    win32_game_code Game = Win32LoadGameCode(SourceGameCodeDLLFullPath, TempGameCodeDLLFullPath);
 
     // Main Loop
     GlobalRunning = true;
     while (GlobalRunning)
     {
-        Win32UnloadGameCode(&Game);
-        if(timer++ >= 120)
+        FILETIME NewDLLWriteTime = Win32GetLastWriteTime(SourceGameCodeDLLFullPath);
+        if(CompareFileTime(&NewDLLWriteTime, &Game.DLLLastWriteTime) != 0)
         {
-            Game = Win32LoadGameCode();
+            Win32UnloadGameCode(&Game);
+            Game = Win32LoadGameCode(SourceGameCodeDLLFullPath, TempGameCodeDLLFullPath);
         }
 
         game_controller_input* OldKeyboardController = GetController(OldInput, 0);
