@@ -46,4 +46,13 @@ struct win32_game_code
     bool IsValid;
 };
 
+struct win32_state
+{
+    HANDLE RecordingHandle;
+    int InputRecordingIndex;
+
+    HANDLE PlaybackHandle;
+    int InputPlayingIndex;
+};
+
 #endif  // WIN32_FOLAYFILA

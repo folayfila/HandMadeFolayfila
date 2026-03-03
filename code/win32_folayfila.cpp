@@ -424,7 +424,53 @@ internal void Win32ProcessKeyboardMessage(game_button_state* NewState, bool32 Is
     ++NewState->HalfTransitionCount;
 }
 
-internal void Win32HandleKeyboardInput(WPARAM WParam, LPARAM LParam, game_controller_input* KeyboardController)
+
+internal void Win32BeginRecordingInput(win32_state *Win32State, int InputRecordingIndex)
+{
+    Win32State->InputRecordingIndex = InputRecordingIndex;
+
+    char *FileName = "input.recording";
+    Win32State->RecordingHandle = CreateFileA(FileName, GENERIC_WRITE, 0, 0, CREATE_ALWAYS, 0, 0);
+}
+
+internal void Win32EndRecordingInput(win32_state *Win32State)
+{
+    CloseHandle(Win32State->RecordingHandle);
+    Win32State->InputRecordingIndex = 0;
+}
+
+internal void Win32BeginInputPlayback(win32_state *Win32State, int InputPlayingIndex)
+{
+    Win32State->InputPlayingIndex = InputPlayingIndex;
+
+    char *FileName = "input.recording";
+    Win32State->PlaybackHandle = CreateFileA(FileName, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0);
+}
+
+internal void Win32EndInputPlayback(win32_state *Win32State)
+{
+    CloseHandle(Win32State->PlaybackHandle);
+    Win32State->InputPlayingIndex = 0;
+}
+
+internal void Win32RecordInput(win32_state *Win32State, game_input *Input)
+{
+    DWORD BytesWritten;
+    WriteFile(Win32State->RecordingHandle, Input, sizeof(Input), &BytesWritten, 0);
+}
+
+internal void Win32PlaybackInput(win32_state *Win32State, game_input *Input)
+{
+    DWORD BytesRead;
+    if(ReadFile(Win32State->PlaybackHandle, Input, sizeof(Input), &BytesRead, 0))
+    {
+        int PlayingIndex = Win32State->InputPlayingIndex;
+        Win32EndInputPlayback(Win32State);
+        Win32BeginInputPlayback(Win32State, PlayingIndex);
+    }
+}
+
+internal void Win32HandleKeyboardInput(win32_state* Win32State, WPARAM WParam, LPARAM LParam, game_controller_input* KeyboardController)
 {
     uint32 VKCode = (uint32)WParam;
     bool WasDown = ((LParam & (1 << 30)) != 0);
@@ -478,6 +524,21 @@ internal void Win32HandleKeyboardInput(WPARAM WParam, LPARAM LParam, game_contro
         {
             Win32ProcessKeyboardMessage(&KeyboardController->Back, IsDown);
         }
+        else if(VKCode == 'L')
+        {
+            if(IsDown)
+            {
+                if(!Win32State->InputRecordingIndex)
+                {
+                    Win32BeginRecordingInput(Win32State, 1);
+                }
+                else
+                {
+                    Win32EndRecordingInput(Win32State);
+                    Win32BeginInputPlayback(Win32State, 1);
+                }
+            }
+        }
     }
 
     bool32 AltIsDown = (LParam & (1 << 29));
@@ -487,7 +548,7 @@ internal void Win32HandleKeyboardInput(WPARAM WParam, LPARAM LParam, game_contro
     }
 }
 
-internal void Win32HandleWindowsMessageLoop(game_controller_input* KeyboardController)
+internal void Win32HandleWindowsMessageLoop(win32_state* Win32State, game_controller_input* KeyboardController)
 {
     MSG Message;
     while (PeekMessage(&Message, 0, 0, 0, PM_REMOVE))
@@ -499,7 +560,7 @@ internal void Win32HandleWindowsMessageLoop(game_controller_input* KeyboardContr
         case WM_KEYDOWN:
         case WM_KEYUP:
         {
-            Win32HandleKeyboardInput(Message.wParam, Message.lParam, KeyboardController);
+            Win32HandleKeyboardInput(Win32State, Message.wParam, Message.lParam, KeyboardController);
         } break;
 
         default:
@@ -792,6 +853,7 @@ int CALLBACK WinMain( HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandL
     win32_game_code Game = Win32LoadGameCode(SourceGameCodeDLLFullPath, TempGameCodeDLLFullPath);
 
     // Main Loop
+    win32_state Win32State = {};
     GlobalRunning = true;
     while (GlobalRunning)
     {
@@ -812,7 +874,7 @@ int CALLBACK WinMain( HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandL
                 OldKeyboardController->Buttons[ButtonIndex].EndedDown;
         }
 
-        Win32HandleWindowsMessageLoop(NewKeyboardController);
+        Win32HandleWindowsMessageLoop(&Win32State, NewKeyboardController);
         Win32HandleControllerInput(OldInput, NewInput);
 
         DWORD ByteToLock = 0;
@@ -848,6 +910,15 @@ int CALLBACK WinMain( HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandL
         GraphicsBuffer.Width = GlobalBackBuffer.Width;
         GraphicsBuffer.Height = GlobalBackBuffer.Height;
         GraphicsBuffer.Pitch = GlobalBackBuffer.Pitch;
+
+        if(Win32State.InputRecordingIndex)
+        {
+            Win32RecordInput(&Win32State, NewInput);
+        }
+        if(Win32State.InputPlayingIndex)
+        {
+            Win32PlaybackInput(&Win32State, NewInput);
+        }
         Game.UpdateAndRender(&GameMemory, NewInput, &GraphicsBuffer, &SoundBuffer);
 
         if (SoundIsValid)
