@@ -96,8 +96,8 @@ extern "C" GAME_UPDATE_AND_RENDER (GameUpdateAndRender)
             GameState->ToneHz = 256 + (int)(128.0f * (ControllerInput->StickAverage.X));
         }
 
-        GameState->ColorXoffset += ControllerInput->StickAverage.X;
-        GameState->ColorYoffset += ControllerInput->StickAverage.Y;
+        GameState->ColorXoffset -= ControllerInput->StickAverage.X;
+        GameState->ColorYoffset -= ControllerInput->StickAverage.Y;
 
         if (ControllerInput->MoveDown.EndedDown)
         {
@@ -109,11 +109,11 @@ extern "C" GAME_UPDATE_AND_RENDER (GameUpdateAndRender)
         }
         if (ControllerInput->MoveRight.EndedDown)
         {
-            GameState->ColorXoffset += 1.0f;
+            GameState->ColorXoffset -= 1.0f;
         }
         if (ControllerInput->MoveLeft.EndedDown)
         {
-            GameState->ColorXoffset -= 1.0f;
+            GameState->ColorXoffset += 1.0f;
         }
 
         if (ControllerInput->RightShoulder.EndedDown)
@@ -131,6 +131,6 @@ extern "C" GAME_UPDATE_AND_RENDER (GameUpdateAndRender)
             GlobalRunning = false;
         }
     }
-    GameOutputSound(GameState, SoundBuffer);
+    //GameOutputSound(GameState, SoundBuffer);
     DisplayAwesomeGradient(GraphicsBuffer, GameState->ColorXoffset, GameState->ColorYoffset);
 }

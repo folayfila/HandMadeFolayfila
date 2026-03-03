@@ -380,6 +380,14 @@ internal LRESULT CALLBACK Win32MainWindowCallback(HWND Window, UINT Message, WPA
     {
         case WM_ACTIVATEAPP:
         {
+            if(WParam)
+            {
+                SetLayeredWindowAttributes(Window, RGB(0, 0, 0), 255, LWA_ALPHA);
+            }
+            else
+            {
+                SetLayeredWindowAttributes(Window, RGB(0, 0, 0), 255, LWA_ALPHA);
+            }
         } break;
 
         case WM_DESTROY:
@@ -431,6 +439,10 @@ internal void Win32BeginRecordingInput(win32_state *Win32State, int InputRecordi
 
     char *FileName = "input.recording";
     Win32State->RecordingHandle = CreateFileA(FileName, GENERIC_WRITE, 0, 0, CREATE_ALWAYS, 0, 0);
+
+    DWORD BytesToWrite = (DWORD)Win32State->TotalSize;
+    Assert(Win32State->TotalSize == BytesToWrite);
+    WriteFile(Win32State->RecordingHandle, Win32State->GameMemoryBlock, BytesToWrite, &BytesToWrite, 0);
 }
 
 internal void Win32EndRecordingInput(win32_state *Win32State)
@@ -445,6 +457,10 @@ internal void Win32BeginInputPlayback(win32_state *Win32State, int InputPlayingI
 
     char *FileName = "input.recording";
     Win32State->PlaybackHandle = CreateFileA(FileName, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0);
+
+    DWORD BytesToRead = (DWORD)Win32State->TotalSize;
+    Assert(Win32State->TotalSize == BytesToRead);
+    ReadFile(Win32State->RecordingHandle, Win32State->GameMemoryBlock, BytesToRead, &BytesToRead, 0);
 }
 
 internal void Win32EndInputPlayback(win32_state *Win32State)
@@ -456,17 +472,20 @@ internal void Win32EndInputPlayback(win32_state *Win32State)
 internal void Win32RecordInput(win32_state *Win32State, game_input *Input)
 {
     DWORD BytesWritten;
-    WriteFile(Win32State->RecordingHandle, Input, sizeof(Input), &BytesWritten, 0);
+    WriteFile(Win32State->RecordingHandle, Input, sizeof(*Input), &BytesWritten, 0);
 }
 
 internal void Win32PlaybackInput(win32_state *Win32State, game_input *Input)
 {
-    DWORD BytesRead;
-    if(ReadFile(Win32State->PlaybackHandle, Input, sizeof(Input), &BytesRead, 0))
+    DWORD BytesRead = 0;
+    if(ReadFile(Win32State->PlaybackHandle, Input, sizeof(*Input), &BytesRead, 0))
     {
-        int PlayingIndex = Win32State->InputPlayingIndex;
-        Win32EndInputPlayback(Win32State);
-        Win32BeginInputPlayback(Win32State, PlayingIndex);
+        if(BytesRead == 0)
+        {
+            int PlayingIndex = Win32State->InputPlayingIndex;
+            Win32EndInputPlayback(Win32State);
+            Win32BeginInputPlayback(Win32State, PlayingIndex);
+        }
     }
 }
 
@@ -769,7 +788,7 @@ int CALLBACK WinMain( HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandL
     Win32ResizeDIBSection(&GlobalBackBuffer, 1280, 720);
 
     WNDCLASSA WindowClass = {};
-    WindowClass.style = CS_OWNDC | CS_HREDRAW | CS_VREDRAW;
+    WindowClass.style =  CS_HREDRAW | CS_VREDRAW;
     WindowClass.lpfnWndProc = Win32MainWindowCallback;
     WindowClass.hInstance = Instance;
     //WindowClass.hIcon = ;
@@ -787,7 +806,8 @@ int CALLBACK WinMain( HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandL
     }
 
     HWND Window = CreateWindowExA(
-            0, WindowClass.lpszClassName, "Handmade Folayfila",
+            WS_EX_TOPMOST | WS_EX_LAYERED,
+            WindowClass.lpszClassName, "Handmade Folayfila",
             WS_OVERLAPPEDWINDOW | WS_VISIBLE,
             CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
             0, 0, Instance, 0);
@@ -796,10 +816,6 @@ int CALLBACK WinMain( HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandL
     {
         return 0;
     }
-
-    // Since we specified CS_OWNDC, we can just get one device
-    // context and use it forever as we're not sharing it with anyone.
-    HDC DeviceContext = GetDC(Window);
 
     win32_sound_output SoundOutput = {};
     SoundOutput.SamplesPerSecond = 48000;
@@ -819,11 +835,13 @@ int CALLBACK WinMain( HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandL
     LPVOID BaseAddress = 0;
 #endif  // FOLAYFILA_INTERNAL
 
+    win32_state Win32State = {};
     game_memory GameMemory = {};
     GameMemory.PermanentStorageSize = Megabytes(64);
     GameMemory.TransientStorageSize = Gigabytes((uint64)1);
-    uint64 TotalSize = GameMemory.PermanentStorageSize + GameMemory.TransientStorageSize;
-    GameMemory.PermanentStorage = VirtualAlloc(BaseAddress, (size_t)TotalSize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+    Win32State.TotalSize = GameMemory.PermanentStorageSize + GameMemory.TransientStorageSize;
+    Win32State.GameMemoryBlock = VirtualAlloc(BaseAddress, (size_t)Win32State.TotalSize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+    GameMemory.PermanentStorage = Win32State.GameMemoryBlock;
     GameMemory.TransientStorage = ((uint8*)GameMemory.PermanentStorage + GameMemory.PermanentStorageSize);
     GameMemory.DEBUGPlatformFreeFileMemory = DEBUGPlatformFreeFileMemory;
     GameMemory.DEBUGPlatformReadEntireFile = DEBUGPlatformReadEntireFile;
@@ -853,7 +871,6 @@ int CALLBACK WinMain( HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandL
     win32_game_code Game = Win32LoadGameCode(SourceGameCodeDLLFullPath, TempGameCodeDLLFullPath);
 
     // Main Loop
-    win32_state Win32State = {};
     GlobalRunning = true;
     while (GlobalRunning)
     {
@@ -946,10 +963,11 @@ int CALLBACK WinMain( HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandL
 
         win32_window_deminsion Deminsion = Win32GetWindowDeminsion(Window);
 #if FOLAYFILA_INTERNAL
-        Win32DebugSyncDisplay(&GlobalBackBuffer, ArrayCount(DebugTimeMarkers), DebugTimeMarkers,
-            &SoundOutput, TargetSecondsPerFrame);
+        //Win32DebugSyncDisplay(&GlobalBackBuffer, ArrayCount(DebugTimeMarkers), DebugTimeMarkers, &SoundOutput, TargetSecondsPerFrame);
 #endif  // FOLAYFILA_INTERNAL
+        HDC DeviceContext = GetDC(Window);
         Win32DisplayBufferInWindow(&GlobalBackBuffer, DeviceContext, Deminsion.Width, Deminsion.Height);
+        ReleaseDC(Window, DeviceContext);
 
         win32_debug_time_marker Marker = {};
         if (SUCCEEDED(GlobalSecondaryBuffer->GetCurrentPosition(&Marker.PlayCursor, &Marker.WriteCursor)))
