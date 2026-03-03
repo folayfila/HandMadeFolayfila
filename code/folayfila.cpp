@@ -2,26 +2,44 @@
 
 #include "folayfila.h"
 
-internal void GameOutputSound(game_output_sound_buffer* SoundBuffer, int ToneHz)
+internal void GameOutputSound(game_state* GameState, game_output_sound_buffer* SoundBuffer)
 {
-    local_presist float tSine;
     int16 ToneVolume = 3000;
-    int WavePeriod = SoundBuffer->SamplesPerSecond / ToneHz;
+    int WavePeriod = SoundBuffer->SamplesPerSecond / GameState->ToneHz;
 
     int16* SampleOut = SoundBuffer->Samples;
     for (int SampleIndex = 0; SampleIndex < SoundBuffer->SampleCount; ++SampleIndex)
     {
-        float SineValue = sinf(tSine);
+        float SineValue = sinf(GameState->tSine);
         int16 SampleValue = (int16)(SineValue * ToneVolume);
         *SampleOut++ = SampleValue;
         *SampleOut++ = SampleValue;
 
-        tSine += 2.0f * Pi32 * 1.0f / (float)WavePeriod;
+        GameState->tSine += 2.0f * Pi32 * 1.0f / (float)WavePeriod;
     }
 }
 
 internal void DisplayAwesomeGradient(game_graphics_buffer* Buffer, float XOffset, float YOffset)
 {
+    local_presist uint8 Red = 0;
+    local_presist bool32 MaxRed = false;
+    if (!MaxRed)
+    {
+        ++Red;
+        if (Red == 255)
+        {
+            MaxRed = true;
+        }
+    }
+    else
+    {
+        --Red;
+        if (Red == 0)
+        {
+            MaxRed = false;
+        }
+    }
+
     uint8* Row = (uint8*)Buffer->Memory;
     for (int Y = 0; Y < Buffer->Height; ++Y)
     {
@@ -31,7 +49,7 @@ internal void DisplayAwesomeGradient(game_graphics_buffer* Buffer, float XOffset
 
             uint8 Blue = (uint8)(X + XOffset);
             uint8 Green = (uint8)(Y + YOffset);
-            uint8 Red = 100;
+            Red;
 
             // Memory: BB GG RR xx
             *Pixel++ = (Blue | Green << 8 | Red << 16);
@@ -40,9 +58,7 @@ internal void DisplayAwesomeGradient(game_graphics_buffer* Buffer, float XOffset
     }
 }
 
-internal void GameUpdateAndRender(game_memory* GameMemory, game_input* Input,
-                                  game_graphics_buffer* GraphicsBuffer,
-                                  game_output_sound_buffer* SoundBuffer)
+extern "C" GAME_UPDATE_AND_RENDER (GameUpdateAndRender)
 {
     Assert((&Input->Controllers[0].Terminator - &Input->Controllers[0].Buttons[0]) == 
            (ArrayCount(Input->Controllers[0].Buttons)));
@@ -54,14 +70,15 @@ internal void GameUpdateAndRender(game_memory* GameMemory, game_input* Input,
     {
         // File I/O test code.
         char* FileName = __FILE__;
-        debug_read_file_result File = DEBUGPlatformReadEntireFile(FileName);
+        debug_read_file_result File = GameMemory->DEBUGPlatformReadEntireFile(FileName);
         if (File.Contents)
         {
-           DEBUGPlatformWriteEntireFile("Skibidi.out", File.ContentSize, File.Contents);
-           DEBUGPlatformFreeFileMemory(File.Contents);
+           GameMemory->DEBUGPlatformWriteEntireFile("Skibidi.out", File.ContentSize, File.Contents);
+           GameMemory->DEBUGPlatformFreeFileMemory(File.Contents);
         }
 
         GameState->ToneHz = 256;
+        GameState->tSine = 0.0f;
         GameMemory->IsInitialized = true;
     }
 
@@ -114,6 +131,6 @@ internal void GameUpdateAndRender(game_memory* GameMemory, game_input* Input,
             GlobalRunning = false;
         }
     }
-    GameOutputSound(SoundBuffer, GameState->ToneHz);
+    GameOutputSound(GameState, SoundBuffer);
     DisplayAwesomeGradient(GraphicsBuffer, GameState->ColorXoffset, GameState->ColorYoffset);
 }

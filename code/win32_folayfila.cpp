@@ -11,6 +11,47 @@ global_variable LPDIRECTSOUNDBUFFER GlobalSecondaryBuffer;
 global_variable int64 GlobalPerfCountFrequency;
 /******************************************************************/
 
+/******************* Game Code *****************************/
+struct win32_game_code
+{
+    HMODULE GameCodeDLL;
+    game_update_and_render* UpdateAndRender;
+    bool IsValid;
+};
+internal win32_game_code Win32LoadGameCode()
+{
+    win32_game_code Result;
+    
+    CopyFile("folayfila.dll", "folayfila_temp.dll", FALSE);
+    Result.GameCodeDLL = LoadLibraryA("folayfila_temp.dll");
+
+    Result.GameCodeDLL = LoadLibraryA("folayfila.dll");
+    if (Result.GameCodeDLL)
+    {
+        Result.UpdateAndRender = (game_update_and_render*)GetProcAddress(Result.GameCodeDLL, "GameUpdateAndRender");
+        Result.IsValid = (Result.UpdateAndRender);
+    }
+
+    if(!Result.IsValid)
+    {
+        Result.UpdateAndRender = GameUpdateAndRenderStub;
+    }
+
+    return Result;
+}
+
+internal void Win32UnloadGameCode(win32_game_code* GameCode)
+{
+    if(GameCode->GameCodeDLL)
+    {
+        FreeLibrary(GameCode->GameCodeDLL);
+    }
+    GameCode->GameCodeDLL = 0;
+    GameCode->IsValid = false;
+    GameCode->UpdateAndRender = GameUpdateAndRenderStub;
+}
+/******************************************************************/
+
 /******************* XINPUT Defines *****************************/
 #define X_INPUT_GET_STATE(name) DWORD WINAPI name(DWORD dwUserIndex, XINPUT_STATE *pState)
 typedef X_INPUT_GET_STATE(x_input_get_state);
@@ -32,7 +73,15 @@ global_variable x_input_set_state *XInputSetState_ = XInputSetStateStub;
 /******************************************************************/
 
 /************************** I/O ************************************/
-internal debug_read_file_result DEBUGPlatformReadEntireFile(char* FileName)
+DEBUG_PLATFORM_FREE_FILE_MEMORY(DEBUGPlatformFreeFileMemory)
+{
+    if (Memeory)
+    {
+        VirtualFree(Memeory, 0, MEM_RELEASE);
+    }
+}
+
+DEBUG_PLATFORM_READ_ENTIRE_FILE(DEBUGPlatformReadEntireFile)
 {
     debug_read_file_result Result = {};
 
@@ -64,15 +113,7 @@ internal debug_read_file_result DEBUGPlatformReadEntireFile(char* FileName)
     return Result;
 }
 
-internal void DEBUGPlatformFreeFileMemory(void* Memeory)
-{
-    if (Memeory)
-    {
-        VirtualFree(Memeory, 0, MEM_RELEASE);
-    }
-}
-
-internal bool32 DEBUGPlatformWriteEntireFile(char* FileName, uint32 MemorySize, void* Memory)
+DEBUG_PLATFORM_WRITE_ENTIRE_FILE(DEBUGPlatformWriteEntireFile)
 {
     bool32 Result = false;
 
@@ -628,7 +669,7 @@ int CALLBACK WinMain( HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandL
 #define GameUpdateHz (MonitorRefreshHz/2)
     float TargetSecondsPerFrame = 1.0f / (float)GameUpdateHz;
 
-    if (!RegisterClass(&WindowClass))
+    if (!RegisterClassA(&WindowClass))
     {
         return 0;
     }
@@ -672,6 +713,9 @@ int CALLBACK WinMain( HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandL
     uint64 TotalSize = GameMemory.PermanentStorageSize + GameMemory.TransientStorageSize;
     GameMemory.PermanentStorage = VirtualAlloc(BaseAddress, (size_t)TotalSize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
     GameMemory.TransientStorage = ((uint8*)GameMemory.PermanentStorage + GameMemory.PermanentStorageSize);
+    GameMemory.DEBUGPlatformFreeFileMemory = DEBUGPlatformFreeFileMemory;
+    GameMemory.DEBUGPlatformReadEntireFile = DEBUGPlatformReadEntireFile;
+    GameMemory.DEBUGPlatformWriteEntireFile = DEBUGPlatformWriteEntireFile;
 
     if (!Samples || !GameMemory.PermanentStorage || !GameMemory.TransientStorage)
     {
@@ -694,10 +738,19 @@ int CALLBACK WinMain( HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandL
     DWORD LastPlayCursor = 0;
     bool32 SoundIsValid = false;
 
+    win32_game_code Game = Win32LoadGameCode();
+    int timer = 0;
+
     // Main Loop
     GlobalRunning = true;
     while (GlobalRunning)
     {
+        Win32UnloadGameCode(&Game);
+        if(timer++ >= 120)
+        {
+            Game = Win32LoadGameCode();
+        }
+
         game_controller_input* OldKeyboardController = GetController(OldInput, 0);
         game_controller_input* NewKeyboardController = GetController(NewInput, 0);
         *NewKeyboardController = {};
@@ -744,7 +797,7 @@ int CALLBACK WinMain( HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandL
         GraphicsBuffer.Width = GlobalBackBuffer.Width;
         GraphicsBuffer.Height = GlobalBackBuffer.Height;
         GraphicsBuffer.Pitch = GlobalBackBuffer.Pitch;
-        GameUpdateAndRender(&GameMemory, NewInput, &GraphicsBuffer, &SoundBuffer);
+        Game.UpdateAndRender(&GameMemory, NewInput, &GraphicsBuffer, &SoundBuffer);
 
         if (SoundIsValid)
         {

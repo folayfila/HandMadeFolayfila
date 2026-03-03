@@ -49,9 +49,19 @@ struct debug_read_file_result
     uint32 ContentSize;
     void* Contents;
 };
-internal debug_read_file_result DEBUGPlatformReadEntireFile(char *FileName);
-internal void DEBUGPlatformFreeFileMemory(void *Memeory);
-internal bool32 DEBUGPlatformWriteEntireFile(char *FileName, uint32 MemorySize, void *Memory);
+
+#define DEBUG_PLATFORM_FREE_FILE_MEMORY(name) void name(void *Memeory)
+typedef DEBUG_PLATFORM_FREE_FILE_MEMORY(debug_platform_free_file_memory);
+
+#define DEBUG_PLATFORM_READ_ENTIRE_FILE(name) debug_read_file_result name(char *FileName)
+typedef DEBUG_PLATFORM_READ_ENTIRE_FILE(debug_platform_read_entire_file);
+
+#define DEBUG_PLATFORM_WRITE_ENTIRE_FILE(name) bool32 name(char *FileName, uint32 MemorySize, void *Memory)
+typedef DEBUG_PLATFORM_WRITE_ENTIRE_FILE(debug_platform_write_entire_file);
+
+void DEBUGPlatformFreeFileMemory(void *Memeory);
+debug_read_file_result DEBUGPlatformReadEntireFile(char *FileName);
+bool32 DEBUGPlatformWriteEntireFile(char *FileName, uint32 MemorySize, void *Memory);
 #endif  // FOLAYFILA_INTERNAL
 
 #define Pi32 3.141459265359f
@@ -154,6 +164,10 @@ struct game_memory
 
     uint64 TransientStorageSize;
     void* TransientStorage; // REQUIRED to be cleared to zero at startup.
+
+    debug_platform_free_file_memory *DEBUGPlatformFreeFileMemory;
+    debug_platform_read_entire_file *DEBUGPlatformReadEntireFile;
+    debug_platform_write_entire_file *DEBUGPlatformWriteEntireFile;
 };
 
 struct game_clocks
@@ -162,10 +176,11 @@ struct game_clocks
 };
 
 /**************************************/
-
-internal void GameUpdateAndRender(game_memory* GameMemory, game_input* Input,
-    game_graphics_buffer* GraphicsBuffer,
-    game_output_sound_buffer* SoundBuffer);
+#define GAME_UPDATE_AND_RENDER(name) void name(game_memory* GameMemory, game_input* Input, game_graphics_buffer* GraphicsBuffer, game_output_sound_buffer* SoundBuffer)
+typedef GAME_UPDATE_AND_RENDER(game_update_and_render);
+GAME_UPDATE_AND_RENDER(GameUpdateAndRenderStub)
+{
+}
 
 ///
 ///
@@ -176,6 +191,7 @@ struct game_state
     float ColorXoffset;
     float ColorYoffset;
     int ToneHz;
+    float tSine;
 };
 
 

@@ -3,8 +3,8 @@
 #if !defined(WIN32_FOLAYFILA)
 #define WIN32_FOLAYFILA
 
-#include "folayfila.cpp"
 #include <windows.h>
+#include "folayfila.h"
 
 struct win32_window_deminsion
 {
