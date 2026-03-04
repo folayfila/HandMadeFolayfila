@@ -70,17 +70,35 @@ inline void CatStrings(size_t SourceACount, char* SourceA,
     size_t SourceBCount, char* SourceB,
     size_t DestCount, char* Dest)
 {
-    for (int Index = 0; Index < SourceACount; ++Index)
+    for (size_t Index = 0; Index < SourceACount; ++Index)
     {
         *Dest++ = *SourceA++;
     }
 
-    for (int Index = 0; Index < SourceBCount; ++Index)
+    for (size_t Index = 0; Index < SourceBCount; ++Index)
     {
         *Dest++ = *SourceB++;
     }
 
     *Dest++ = 0;
+}
+
+inline int32 Clamp(int32 Value, int32 Min, int32 Max)
+{
+    if (Value < Min)
+    {
+        Value = Min;
+    }
+    else if (Value > Max)
+    {
+        Value = Max;
+    }
+    return Value;
+}
+
+internal int32 RoundFloatToInt32(float Float)
+{
+    int32 Result = (int32)(Float + 0.5f);
 }
 /**************************************/
 
@@ -101,6 +119,7 @@ struct game_graphics_buffer
     int Width;
     int Height;
     int Pitch;
+    int BytesPerPixel;
 };
 
 struct game_output_sound_buffer
@@ -153,6 +172,8 @@ struct game_input
 {
     game_button_state MouseButtons[5];
     int32 MouseX, MouseY, MouseZ;
+
+    float SecondsToAdvanceOverUpdate;
     game_controller_input Controllers[5];
 };
 
@@ -204,12 +225,6 @@ struct game_memory
     debug_platform_read_entire_file *DEBUGPlatformReadEntireFile;
     debug_platform_write_entire_file *DEBUGPlatformWriteEntireFile;
 };
-
-struct game_clocks
-{
-    float DeltaTime;
-};
-
 /**************************************/
 #define GAME_UPDATE_AND_RENDER(name) void name(thread_context *Thread, game_memory* GameMemory, game_input* Input, game_graphics_buffer* GraphicsBuffer, game_output_sound_buffer* SoundBuffer)
 typedef GAME_UPDATE_AND_RENDER(game_update_and_render);
@@ -219,10 +234,6 @@ typedef GAME_UPDATE_AND_RENDER(game_update_and_render);
 /// 
 struct game_state
 {
-    float ColorXoffset;
-    float ColorYoffset;
-    int ToneHz;
-    float tSine;
 };
 
 

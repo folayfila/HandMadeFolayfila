@@ -26,7 +26,7 @@ internal FILETIME Win32GetLastWriteTime(char* FileName)
 
 internal win32_game_code Win32LoadGameCode(char* SourceDLLName, char* TempDLLName)
 {
-    win32_game_code Result;
+    win32_game_code Result = {};
     
     Result.DLLLastWriteTime = Win32GetLastWriteTime(SourceDLLName);
 
@@ -791,7 +791,7 @@ int CALLBACK WinMain( HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandL
     UINT DesiredSchedulerMS = 1;
     bool32 SleepIsGranular = (timeBeginPeriod(DesiredSchedulerMS) == TIMERR_NOERROR);
 
-    Win32ResizeDIBSection(&GlobalBackBuffer, 1280, 720);
+    Win32ResizeDIBSection(&GlobalBackBuffer, 960, 540);
 
     WNDCLASSA WindowClass = {};
     WindowClass.style =  CS_HREDRAW | CS_VREDRAW;
@@ -825,7 +825,7 @@ int CALLBACK WinMain( HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandL
     {
         MonitorRefreshHz = Win32RefreshRate;
     }
-    float GameUpdateHz = (MonitorRefreshHz/2);
+    float GameUpdateHz = (float)(MonitorRefreshHz/2);
     float TargetSecondsPerFrame = 1.0f / GameUpdateHz;
 
     int FramesOfAudioLatency = 3;
@@ -868,6 +868,7 @@ int CALLBACK WinMain( HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandL
     game_input Input[2] = {};
     game_input* NewInput = &Input[0];
     game_input* OldInput = &Input[1];
+    NewInput->SecondsToAdvanceOverUpdate = TargetSecondsPerFrame;
 
     LARGE_INTEGER LastCounter = Win32GetWallClock();
 
@@ -934,6 +935,7 @@ int CALLBACK WinMain( HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandL
         GraphicsBuffer.Width = GlobalBackBuffer.Width;
         GraphicsBuffer.Height = GlobalBackBuffer.Height;
         GraphicsBuffer.Pitch = GlobalBackBuffer.Pitch;
+        GraphicsBuffer.BytesPerPixel = GlobalBackBuffer.BytesPerPixel;
 
         if(Win32State.InputRecordingIndex)
         {
