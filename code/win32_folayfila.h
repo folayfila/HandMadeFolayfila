@@ -42,10 +42,13 @@ struct win32_game_code
 {
     HMODULE GameCodeDLL;
     FILETIME DLLLastWriteTime;
+    
+    // Callback must be valid. Check for null before usage.
     game_update_and_render* UpdateAndRender;
     bool IsValid;
 };
 
+#define WIN32_STATE_FILE_NAME_COUNT MAX_PATH
 struct win32_state
 {
     uint64 TotalSize;
@@ -56,6 +59,9 @@ struct win32_state
 
     HANDLE PlaybackHandle;
     int InputPlayingIndex;
+
+    char EXEFileName[WIN32_STATE_FILE_NAME_COUNT];
+    char *OnePastLastEXEFileNameSlash;
 };
 
 #endif  // WIN32_FOLAYFILA

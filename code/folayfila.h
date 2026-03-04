@@ -78,6 +78,32 @@ inline uint32 SafeTruncateUInt64(uint64 Value)
     return ((uint32)Value);
 }
 
+inline int StringLength(char* String)
+{
+    int Count = 0;
+    while (*String++)
+    {
+        ++Count;
+    }
+    return Count;
+}
+
+inline void CatStrings(size_t SourceACount, char* SourceA,
+    size_t SourceBCount, char* SourceB,
+    size_t DestCount, char* Dest)
+{
+    for (int Index = 0; Index < SourceACount; ++Index)
+    {
+        *Dest++ = *SourceA++;
+    }
+
+    for (int Index = 0; Index < SourceBCount; ++Index)
+    {
+        *Dest++ = *SourceB++;
+    }
+
+    *Dest++ = 0;
+}
 /**************************************/
 
 /************** globals ***************/
@@ -178,10 +204,6 @@ struct game_clocks
 /**************************************/
 #define GAME_UPDATE_AND_RENDER(name) void name(game_memory* GameMemory, game_input* Input, game_graphics_buffer* GraphicsBuffer, game_output_sound_buffer* SoundBuffer)
 typedef GAME_UPDATE_AND_RENDER(game_update_and_render);
-GAME_UPDATE_AND_RENDER(GameUpdateAndRenderStub)
-{
-}
-
 ///
 ///
 ///

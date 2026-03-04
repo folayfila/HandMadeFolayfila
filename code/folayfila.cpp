@@ -131,6 +131,6 @@ extern "C" GAME_UPDATE_AND_RENDER (GameUpdateAndRender)
             GlobalRunning = false;
         }
     }
-    //GameOutputSound(GameState, SoundBuffer);
+    GameOutputSound(GameState, SoundBuffer);
     DisplayAwesomeGradient(GraphicsBuffer, GameState->ColorXoffset, GameState->ColorYoffset);
 }
