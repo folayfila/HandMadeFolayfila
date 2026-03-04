@@ -42,28 +42,6 @@ typedef int32 bool32;
 #define Assert(Expression)
 #endif  // FOLAYFILA_SLOW
 
-#if FOLAYFILA_INTERNAL
-//! IMPORTANT: These are not for shipping!
-struct debug_read_file_result
-{
-    uint32 ContentSize;
-    void* Contents;
-};
-
-#define DEBUG_PLATFORM_FREE_FILE_MEMORY(name) void name(void *Memeory)
-typedef DEBUG_PLATFORM_FREE_FILE_MEMORY(debug_platform_free_file_memory);
-
-#define DEBUG_PLATFORM_READ_ENTIRE_FILE(name) debug_read_file_result name(char *FileName)
-typedef DEBUG_PLATFORM_READ_ENTIRE_FILE(debug_platform_read_entire_file);
-
-#define DEBUG_PLATFORM_WRITE_ENTIRE_FILE(name) bool32 name(char *FileName, uint32 MemorySize, void *Memory)
-typedef DEBUG_PLATFORM_WRITE_ENTIRE_FILE(debug_platform_write_entire_file);
-
-void DEBUGPlatformFreeFileMemory(void *Memeory);
-debug_read_file_result DEBUGPlatformReadEntireFile(char *FileName);
-bool32 DEBUGPlatformWriteEntireFile(char *FileName, uint32 MemorySize, void *Memory);
-#endif  // FOLAYFILA_INTERNAL
-
 #define Pi32 3.141459265359f
 
 #define Kilobytes(Value) ((Value) * 1024)
@@ -173,13 +151,44 @@ struct game_controller_input
 
 struct game_input
 {
+    game_button_state MouseButtons[5];
+    int32 MouseX, MouseY, MouseZ;
     game_controller_input Controllers[5];
 };
+
 inline game_controller_input* GetController(game_input *Input, int ControllerIndex)
 { 
     Assert(ControllerIndex < ArrayCount(Input->Controllers));
     return &Input->Controllers[ControllerIndex];
 }
+
+struct thread_context
+{
+    int PlaceHolder;
+};
+
+
+#if FOLAYFILA_INTERNAL
+//! IMPORTANT: These are not for shipping!
+struct debug_read_file_result
+{
+    uint32 ContentSize;
+    void* Contents;
+};
+
+#define DEBUG_PLATFORM_FREE_FILE_MEMORY(name) void name(thread_context *Thread, void *Memeory)
+typedef DEBUG_PLATFORM_FREE_FILE_MEMORY(debug_platform_free_file_memory);
+
+#define DEBUG_PLATFORM_READ_ENTIRE_FILE(name) debug_read_file_result name(thread_context *Thread, char *FileName)
+typedef DEBUG_PLATFORM_READ_ENTIRE_FILE(debug_platform_read_entire_file);
+
+#define DEBUG_PLATFORM_WRITE_ENTIRE_FILE(name) bool32 name(thread_context *Thread, char *FileName, uint32 MemorySize, void *Memory)
+typedef DEBUG_PLATFORM_WRITE_ENTIRE_FILE(debug_platform_write_entire_file);
+
+DEBUG_PLATFORM_FREE_FILE_MEMORY(DEBUGPlatformFreeFileMemory);
+DEBUG_PLATFORM_READ_ENTIRE_FILE(DEBUGPlatformReadEntireFile);
+DEBUG_PLATFORM_WRITE_ENTIRE_FILE(DEBUGPlatformWriteEntireFile);
+#endif  // FOLAYFILA_INTERNAL
 
 struct game_memory
 {
@@ -202,7 +211,7 @@ struct game_clocks
 };
 
 /**************************************/
-#define GAME_UPDATE_AND_RENDER(name) void name(game_memory* GameMemory, game_input* Input, game_graphics_buffer* GraphicsBuffer, game_output_sound_buffer* SoundBuffer)
+#define GAME_UPDATE_AND_RENDER(name) void name(thread_context *Thread, game_memory* GameMemory, game_input* Input, game_graphics_buffer* GraphicsBuffer, game_output_sound_buffer* SoundBuffer)
 typedef GAME_UPDATE_AND_RENDER(game_update_and_render);
 ///
 ///

@@ -70,11 +70,11 @@ extern "C" GAME_UPDATE_AND_RENDER (GameUpdateAndRender)
     {
         // File I/O test code.
         char* FileName = __FILE__;
-        debug_read_file_result File = GameMemory->DEBUGPlatformReadEntireFile(FileName);
+        debug_read_file_result File = GameMemory->DEBUGPlatformReadEntireFile(Thread, FileName);
         if (File.Contents)
         {
-           GameMemory->DEBUGPlatformWriteEntireFile("Skibidi.out", File.ContentSize, File.Contents);
-           GameMemory->DEBUGPlatformFreeFileMemory(File.Contents);
+           GameMemory->DEBUGPlatformWriteEntireFile(Thread, "Skibidi.out", File.ContentSize, File.Contents);
+           GameMemory->DEBUGPlatformFreeFileMemory(Thread, File.Contents);
         }
 
         GameState->ToneHz = 256;
