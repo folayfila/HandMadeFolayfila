@@ -122,10 +122,42 @@ struct vec2
         X = (float)x;
         Y = (float)y;
     }
+    vec2(float vec)
+    {
+        X = vec;
+        Y = vec;
+    }
     vec2(float x, float y)
     {
         X = x;
         Y = y;
+    }
+
+    vec2 operator*(float Scalar) const
+    {
+        vec2 Result;
+        Result.X = X * Scalar;
+        Result.Y = Y * Scalar;
+        return Result;
+    }
+
+    vec2& operator=(const vec2& Other)
+    {
+        if (this != &Other)
+        {
+            X = Other.X;
+            Y = Other.Y;
+        }
+        return *this;
+    }
+    vec2& operator+=(const vec2& Other)
+    {
+        if (this != &Other)
+        {
+            X += Other.X;
+            Y += Other.Y;
+        }
+        return *this;
     }
     float X;
     float Y;
@@ -221,7 +253,7 @@ struct game_input
     game_button_state MouseButtons[5];
     int32 MouseX, MouseY, MouseZ;
 
-    float SecondsToAdvanceOverUpdate;
+    float DeltaTime;
     game_controller_input Controllers[5];
 };
 

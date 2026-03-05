@@ -55,12 +55,13 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         (ArrayCount(Input->Controllers[0].Buttons)));
     Assert(sizeof(game_state) <= GameMemory->PermanentStorageSize);
 
+    game_state* GameState = (game_state*)GameMemory->PermanentStorage;
+
     if (!GameMemory->IsInitialized)
     {
+        GameState->Player = vec2(30.0f, 275.0f);
         GameMemory->IsInitialized = true;
     }
-
-    game_state* GameState = (game_state*)GameMemory->PermanentStorage;
 
     for (int ControllerIndex = 0; ControllerIndex < ArrayCount(Input->Controllers); ++ControllerIndex)
     {
@@ -71,25 +72,34 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
             continue;
         }
 
+        vec2 dPlayer(0.0f);
         if (ControllerInput->MoveDown.EndedDown)
         {
+            dPlayer.Y += 10.0f;
         }
         if (ControllerInput->MoveUp.EndedDown)
         {
+            dPlayer.Y -= 10.0f;
         }
         if (ControllerInput->MoveRight.EndedDown)
         {
+            dPlayer.X += 10.0f;
         }
         if (ControllerInput->MoveLeft.EndedDown)
         {
+            dPlayer.X -= 10.0f;
         }
 
         if (ControllerInput->RightShoulder.EndedDown)
         {
+            dPlayer.X += 100.0f;
         }
         if (ControllerInput->LeftShoulder.EndedDown)
         {
+            dPlayer.X -= 100.0f;
         }
+        dPlayer = dPlayer * 20.0f;
+        GameState->Player += dPlayer * Input->DeltaTime;
 
         // Quit game
         if (ControllerInput->Back.EndedDown)
@@ -109,13 +119,13 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     uint32 TileMap[9][17] =
     {
         {2, 2, 2, 2,   2, 2, 2, 2,   2, 2, 2, 2,   2, 2, 2, 2, 2},
-        {2, 1, 0, 0,   0, 0, 0, 0,   0, 0, 1, 1,   0, 0, 0, 0, 2},
-        {2, 1, 0, 0,   0, 0, 0, 0,   0, 0, 1, 1,   0, 0, 0, 0, 2},
-        {2, 1, 1, 0,   0, 0, 0, 0,   0, 1, 0, 0,   0, 1, 1, 0, 2},
-        {1, 1, 1, 0,   0, 1, 1, 0,   1, 0, 0, 0,   1, 1, 1, 1, 1},
-        {2, 1, 0, 1,   1, 1, 1, 1,   0, 0, 0, 0,   1, 1, 1, 0, 2},
-        {2, 1, 2, 0,   0, 0, 0, 0,   0, 0, 1, 0,   0, 0, 0, 0, 2},
-        {2, 0, 0, 0,   0, 0, 0, 0,   0, 0, 0, 0,   0, 0, 0, 0, 2},
+        {2, 1, 0, 0,   0, 0, 1, 1,   1, 1, 1, 1,   1, 1, 1, 0, 2},
+        {2, 1, 0, 0,   0, 2, 1, 0,   0, 0, 1, 1,   1, 0, 1, 0, 2},
+        {2, 1, 1, 0,   0, 1, 1, 0,   0, 1, 1, 1,   1, 1, 1, 0, 2},
+        {1, 1, 1, 1,   1, 1, 1, 0,   0, 1, 1, 1,   1, 1, 1, 1, 1},
+        {2, 1, 1, 1,   1, 1, 1, 1,   1, 1, 1, 0,   1, 1, 1, 0, 2},
+        {2, 1, 2, 0,   0, 0, 1, 0,   0, 0, 1, 0,   0, 0, 0, 0, 2},
+        {2, 0, 0, 0,   0, 0, 1, 1,   1, 0, 0, 0,   0, 0, 0, 0, 2},
         {2, 2, 2, 2,   2, 2, 2, 2,   2, 2, 2, 2,   2, 2, 2, 2, 2},
     };
 
@@ -153,8 +163,12 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         }
     }
 
-    //color PlayerColor;
-    //DrawRectangle(GraphicsBuffer, vec2(), vec2(), PlayerColor);
+    color PlayerColor(0.9f, 0.1f, 0.1f);
+    float PlayerWidth = 0.25f * TileWidth;
+    float PlayerHeight = 0.25f * TileHeight;
+    vec2 PlayerTopLeft = vec2(GameState->Player.X - 0.5f*PlayerWidth, GameState->Player.Y - PlayerHeight);
+    vec2 PlayerBottomRight = vec2(PlayerTopLeft.X + PlayerWidth, PlayerTopLeft.Y + PlayerHeight);
+    DrawRectangle(GraphicsBuffer, PlayerTopLeft, PlayerBottomRight, PlayerColor);
 }
 
 

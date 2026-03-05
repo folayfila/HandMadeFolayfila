@@ -868,7 +868,6 @@ int CALLBACK WinMain( HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandL
     game_input Input[2] = {};
     game_input* NewInput = &Input[0];
     game_input* OldInput = &Input[1];
-    NewInput->SecondsToAdvanceOverUpdate = TargetSecondsPerFrame;
 
     LARGE_INTEGER LastCounter = Win32GetWallClock();
 
@@ -883,6 +882,8 @@ int CALLBACK WinMain( HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandL
     GlobalRunning = true;
     while (GlobalRunning)
     {
+        NewInput->DeltaTime = TargetSecondsPerFrame;
+
         FILETIME NewDLLWriteTime = Win32GetLastWriteTime(SourceGameCodeDLLFullPath);
         if(CompareFileTime(&NewDLLWriteTime, &Game.DLLLastWriteTime) != 0)
         {
