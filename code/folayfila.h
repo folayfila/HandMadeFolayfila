@@ -83,7 +83,7 @@ inline void CatStrings(size_t SourceACount, char* SourceA,
     *Dest++ = 0;
 }
 
-inline int32 Clamp(int32 Value, int32 Min, int32 Max)
+inline int32 Clamp32(int32 Value, int32 Min, int32 Max)
 {
     if (Value < Min)
     {
@@ -99,6 +99,13 @@ inline int32 Clamp(int32 Value, int32 Min, int32 Max)
 internal int32 RoundFloatToInt32(float Float)
 {
     int32 Result = (int32)(Float + 0.5f);
+    return Result;
+}
+
+internal uint32 RoundFloatToUInt32(float Float)
+{
+    uint32 Result = (uint32)(Float + 0.5f);
+    return Result;
 }
 /**************************************/
 
@@ -109,9 +116,50 @@ global_variable bool32 GlobalRunning;
 /************** structs ***************/
 struct vec2
 {
+    vec2() {}
+    vec2(int x, int y)
+    {
+        X = (float)x;
+        Y = (float)y;
+    }
+    vec2(float x, float y)
+    {
+        X = x;
+        Y = y;
+    }
     float X;
     float Y;
 };
+
+struct color
+{
+    color() {}
+    color(float r, float g, float b, bool Is255 = false)
+    {
+        if (Is255)
+        {
+            R = r / 255.0f;
+            G = g / 255.0f;
+            B = b / 255.0f;
+        }
+        else
+        {
+            R = r;
+            G = g;
+            B = b;
+        }
+    }
+    float R;
+    float G;
+    float B;
+};
+inline uint32 GetColorU32(color Color)
+{
+    uint32 ColorU32 = ((RoundFloatToUInt32(Color.R * 255) << 16) |
+                       (RoundFloatToUInt32(Color.G * 255) << 8) |
+                       (RoundFloatToUInt32(Color.B * 255) << 0));
+    return ColorU32;
+}
 
 struct game_graphics_buffer
 {
@@ -234,6 +282,7 @@ typedef GAME_UPDATE_AND_RENDER(game_update_and_render);
 /// 
 struct game_state
 {
+    vec2 Player;
 };
 
 

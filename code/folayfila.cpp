@@ -25,39 +25,34 @@ internal void GameOutputSound(game_state* GameState, game_output_sound_buffer* S
     }
 }
 
-internal void DrawRectangle(game_graphics_buffer* Buffer, vec2 Min, vec2 Max)
+internal void DrawRectangle(game_graphics_buffer* Buffer, vec2 Min, vec2 Max, color Color)
 {
     uint8* EndOfBuffer = (uint8*)Buffer->Memory + Buffer->Pitch * Buffer->Height;
 
-    int32 MinX = Clamp(RoundFloatToInt32(Min.X), 0, RoundFloatToInt32(Min.X));
-    int32 MaxX = Clamp(RoundFloatToInt32(Max.X), 0, Buffer->Width);
-    int32 MinY = Clamp(RoundFloatToInt32(Min.Y), 0, RoundFloatToInt32(Min.Y));
-    int32 MaxY = Clamp(RoundFloatToInt32(Max.Y), 0, Buffer->Height);
+    int32 MinX = Clamp32(RoundFloatToInt32(Min.X), 0, RoundFloatToInt32(Min.X));
+    int32 MaxX = Clamp32(RoundFloatToInt32(Max.X), 0, Buffer->Width);
+    int32 MinY = Clamp32(RoundFloatToInt32(Min.Y), 0, RoundFloatToInt32(Min.Y));
+    int32 MaxY = Clamp32(RoundFloatToInt32(Max.Y), 0, Buffer->Height);
 
-    static uint32_t Color = 0x12345678;
-    //Color ^= Color << 13;
-    //Color ^= Color >> 17;
-    //Color ^= Color << 5;
+    uint8* Row = ((uint8*)Buffer->Memory + MinX * Buffer->BytesPerPixel + MinY * Buffer->Pitch);
+    uint32 Color32 = GetColorU32(Color);
 
-    for (int X = (int)Min.X; X < (int)Max.X; ++X)
+    for (int Y = MinY; Y < MaxY; ++Y)
     {
-        uint8* Pixel = ((uint8*)Buffer->Memory + X * Buffer->BytesPerPixel + (int)Min.Y * Buffer->Pitch);
+        uint32* Pixel = (uint32*)Row;
         
-        for (int Y = (int)Min.Y; Y < (int)Max.Y; ++Y)
+        for (int X = MinX; X < MaxX; ++X)
         {
-            if ((Pixel >= Buffer->Memory) && ((Pixel + 4) <= EndOfBuffer))
-            {
-                *(uint32*)Pixel = Color;
-            }
-            Pixel += Buffer->Pitch;
+            *Pixel++ = Color32;
         }
+        Row += Buffer->Pitch;
     }
 }
 
-extern "C" GAME_UPDATE_AND_RENDER (GameUpdateAndRender)
+extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 {
-    Assert((&Input->Controllers[0].Terminator - &Input->Controllers[0].Buttons[0]) == 
-           (ArrayCount(Input->Controllers[0].Buttons)));
+    Assert((&Input->Controllers[0].Terminator - &Input->Controllers[0].Buttons[0]) ==
+        (ArrayCount(Input->Controllers[0].Buttons)));
     Assert(sizeof(game_state) <= GameMemory->PermanentStorageSize);
 
     if (!GameMemory->IsInitialized)
@@ -102,13 +97,64 @@ extern "C" GAME_UPDATE_AND_RENDER (GameUpdateAndRender)
             GlobalRunning = false;
         }
     }
-    vec2 Min;
-    Min.X = 400.0f;
-    Min.Y = 250.0f;
-    vec2 Max;
-    Max.X = Min.X + 100.0f;
-    Max.Y = Min.Y + 100.0f;
-    DrawRectangle(GraphicsBuffer, Min, Max);
+
+    float UpperLeftX = -20.0f;
+    float UpperLeftY = 0.0f;
+    float TileWidth = 59.0f;
+    float TileHeight = 59.0f;
+
+    DrawRectangle(GraphicsBuffer, vec2(0.0f, 00.0f),
+        vec2(GraphicsBuffer->Width, GraphicsBuffer->Height), color(1.0f, 1.0f, 0.0f));
+
+    uint32 TileMap[9][17] =
+    {
+        {2, 2, 2, 2,   2, 2, 2, 2,   2, 2, 2, 2,   2, 2, 2, 2, 2},
+        {2, 1, 0, 0,   0, 0, 0, 0,   0, 0, 1, 1,   0, 0, 0, 0, 2},
+        {2, 1, 0, 0,   0, 0, 0, 0,   0, 0, 1, 1,   0, 0, 0, 0, 2},
+        {2, 1, 1, 0,   0, 0, 0, 0,   0, 1, 0, 0,   0, 1, 1, 0, 2},
+        {1, 1, 1, 0,   0, 1, 1, 0,   1, 0, 0, 0,   1, 1, 1, 1, 1},
+        {2, 1, 0, 1,   1, 1, 1, 1,   0, 0, 0, 0,   1, 1, 1, 0, 2},
+        {2, 1, 2, 0,   0, 0, 0, 0,   0, 0, 1, 0,   0, 0, 0, 0, 2},
+        {2, 0, 0, 0,   0, 0, 0, 0,   0, 0, 0, 0,   0, 0, 0, 0, 2},
+        {2, 2, 2, 2,   2, 2, 2, 2,   2, 2, 2, 2,   2, 2, 2, 2, 2},
+    };
+
+    for (int Row = 0; Row < 9; ++Row)
+    {
+        for (int Column = 0; Column < 17; ++Column)
+        {
+            color TileColor;
+            switch (TileMap[Row][Column])
+            {
+            case 0:
+            {
+                // Dirt
+                TileColor = color(87.0f, 40.0f, 36.0f, true);
+            } break;
+            case 1:
+            {
+                // Grass
+                TileColor = color(0.0f, 0.9f, 0.0f);
+            } break;
+            case 2:
+            {
+                // Water
+                TileColor = color(0.0f, 0.1f, 0.8f);
+            } break;
+            }
+
+            vec2 Min, Max;
+            Min.X = UpperLeftX + ((float)(Column * TileWidth));
+            Min.Y = UpperLeftY + ((float)(Row * TileHeight));
+            Max.X = Min.X + TileWidth;
+            Max.Y = Min.Y + TileHeight;
+
+            DrawRectangle(GraphicsBuffer, Min, Max, TileColor);
+        }
+    }
+
+    //color PlayerColor;
+    //DrawRectangle(GraphicsBuffer, vec2(), vec2(), PlayerColor);
 }
 
 
