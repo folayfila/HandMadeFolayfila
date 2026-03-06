@@ -179,9 +179,12 @@ internal void Win32ResizeDIBSection(win32_offscreen_buffer* Buffer, int Width, i
 internal void Win32DisplayBufferInWindow(win32_offscreen_buffer* Buffer,
     HDC DeviceContext, int WindowWidth, int WindowHeight)
 {
+    int OffsetX = 10;
+    int OffsetY = 10;
+
     StretchDIBits(
         DeviceContext,
-        0, 0, Buffer->Width, Buffer->Height,
+        OffsetX, OffsetY, Buffer->Width, Buffer->Height,
         0, 0, Buffer->Width, Buffer->Height,
         Buffer->Memory,
         &Buffer->Info,
@@ -799,6 +802,7 @@ int CALLBACK WinMain( HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandL
     WindowClass.hInstance = Instance;
     //WindowClass.hIcon = ;
     WindowClass.lpszClassName = "HandmadeFolayfilaWindowClass";
+    WindowClass.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
 
     if (!RegisterClassA(&WindowClass))
     {

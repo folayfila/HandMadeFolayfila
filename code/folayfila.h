@@ -102,6 +102,12 @@ internal int32 RoundFloatToInt32(float Float)
     return Result;
 }
 
+internal int32 TruncateFloatToInt32(float Float)
+{
+    int32 Result = (int32)(Float);
+    return Result;
+}
+
 internal uint32 RoundFloatToUInt32(float Float)
 {
     uint32 Result = (uint32)(Float + 0.5f);
@@ -192,6 +198,19 @@ inline uint32 GetColorU32(color Color)
                        (RoundFloatToUInt32(Color.B * 255) << 0));
     return ColorU32;
 }
+
+struct tile_map
+{
+    int32 RowCount;
+    int32 ColumnCount;
+
+    float UpperLeftX;
+    float UpperLeftY;
+    float TileWidth;
+    float TileHeight;
+
+    uint32* Tiles;
+};
 
 struct game_graphics_buffer
 {
