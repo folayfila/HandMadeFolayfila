@@ -96,19 +96,26 @@ inline int32 Clamp32(int32 Value, int32 Min, int32 Max)
     return Value;
 }
 
-internal int32 RoundFloatToInt32(float Float)
+inline int32 RoundFloatToInt32(float Float)
 {
     int32 Result = (int32)(Float + 0.5f);
     return Result;
 }
 
-internal int32 TruncateFloatToInt32(float Float)
+inline int32 TruncateFloatToInt32(float Float)
 {
     int32 Result = (int32)(Float);
     return Result;
 }
 
-internal uint32 RoundFloatToUInt32(float Float)
+inline int32 FloorFloatToInt32(float Float)
+{
+    int32 Result = (int32)(Float);
+    return Result;
+}
+
+
+inline uint32 RoundFloatToUInt32(float Float)
 {
     uint32 Result = (uint32)(Float + 0.5f);
     return Result;
@@ -199,7 +206,42 @@ inline uint32 GetColorU32(color Color)
     return ColorU32;
 }
 
+struct canonical_position
+{
+    int32 TileMapX;
+    int32 TileMapY;
+
+    int32 TileX;
+    int32 TileY;
+
+    float X;
+    float Y;
+};
+
+struct raw_position
+{
+    raw_position() {}
+    raw_position(int32 InTileMapX, int32 InTileMapY, float InX, float InY)
+    {
+        TileMapX = InTileMapX;
+        TileMapY = InTileMapY;
+
+        X = InX;
+        Y = InY;
+    }
+    int32 TileMapX;
+    int32 TileMapY;
+
+    float X;
+    float Y;
+};
+
 struct tile_map
+{
+    uint32* Tiles;
+};
+
+struct world
 {
     int32 RowCount;
     int32 ColumnCount;
@@ -209,7 +251,10 @@ struct tile_map
     float TileWidth;
     float TileHeight;
 
-    uint32* Tiles;
+    int32 TileMapCountX;
+    int32 TileMapCountY;
+
+    tile_map* TileMaps;
 };
 
 struct game_graphics_buffer
@@ -333,6 +378,9 @@ typedef GAME_UPDATE_AND_RENDER(game_update_and_render);
 /// 
 struct game_state
 {
+    int32 PlayerTileMapX;
+    int32 PlayerTileMapY;
+
     vec2 Player;
 };
 

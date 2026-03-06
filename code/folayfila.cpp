@@ -49,47 +49,91 @@ internal void DrawRectangle(game_graphics_buffer* Buffer, vec2 Min, vec2 Max, co
     }
 }
 
-inline uint32 GetTileValueUnchecked(tile_map* TileMap, int32 TileX, int32 TileY)
+inline tile_map* GetTileMap(world* World, int32 TileMapX, int32 TileMapY)
 {
-    uint32 TileMapValue = TileMap->Tiles[TileY * TileMap->ColumnCount + TileX];
+    tile_map* TileMap = 0;
+
+    if ((TileMapX >= 0) && (TileMapX < World->TileMapCountX) &&
+        (TileMapY >= 0) && (TileMapY < World->TileMapCountY))
+    {
+        TileMap = &World->TileMaps[TileMapY * World->TileMapCountX + TileMapX];
+    }
+    return TileMap;
+}
+
+inline uint32 GetTileValueUnchecked(world* World, tile_map* TileMap, int32 TileX, int32 TileY)
+{
+    uint32 TileMapValue = TileMap->Tiles[TileY * World->ColumnCount + TileX];
     return TileMapValue;
 }
 
-internal bool IsTileMapPointEmpty(tile_map *TileMap, vec2 Test)
+inline bool IsTileMapPointEmpty(world *World, tile_map *TileMap, int32 TestTileX, int32 TestTileY)
 {
     bool Empty = false;
-
-    int32 PlayerTileX = TruncateFloatToInt32((Test.X - TileMap->UpperLeftX) / TileMap->TileWidth);
-    int32 PlayerTileY = TruncateFloatToInt32((Test.Y - TileMap->UpperLeftY) / TileMap->TileHeight);
-
-    if ((PlayerTileX >= 0) && (PlayerTileX < TileMap->ColumnCount) &&
-        (PlayerTileY >= 0) && (PlayerTileY < TileMap->RowCount))
+    if (TileMap)
     {
-        uint32 Tile = GetTileValueUnchecked(TileMap, PlayerTileX, PlayerTileY);
-        if (Tile == 'd')
+        if ((TestTileX >= 0) && (TestTileX < World->ColumnCount) &&
+            (TestTileY >= 0) && (TestTileY < World->RowCount))
         {
-            Empty = true;
+            uint32 Tile = GetTileValueUnchecked(World, TileMap, TestTileX, TestTileY);
+            Empty = (Tile == 'd');
         }
     }
     return Empty;
 }
 
-internal bool IsWorldPointEmpty(tile_map* TileMap, vec2 Test)
+inline canonical_position GetCanonicalPosition(world* World, raw_position Pos)
+{
+    canonical_position Result;
+
+    Result.TileMapX = Pos.TileMapX;
+    Result.TileMapY = Pos.TileMapY;
+
+    float X = Pos.X - World->UpperLeftX;
+    float Y = Pos.Y - World->UpperLeftY;
+    Result.TileX = FloorFloatToInt32(X / World->TileWidth);
+    Result.TileY = FloorFloatToInt32(Y / World->TileHeight);
+
+    Result.X = X - Result.TileX * World->TileWidth;
+    Result.Y = Y - Result.TileY * World->TileHeight;
+
+    //Assert(Result.X >= 0);
+    //Assert(Result.Y >= 0);
+    //Assert(Result.X < World->TileWidth);
+    //Assert(Result.Y < World->TileHeight);
+
+    if (Result.TileX < 0)
+    {
+        Result.TileX += World->ColumnCount;
+        --Result.TileMapX;
+    }
+    if (Result.TileY < 0)
+    {
+        Result.TileY += World->RowCount;
+        --Result.TileMapY;
+    }
+    if (Result.TileX >= World->ColumnCount)
+    {
+        Result.TileX -= World->ColumnCount;
+        ++Result.TileMapX;
+    }
+    if (Result.TileY > World->RowCount)
+    {
+        Result.TileY -= World->RowCount;
+        ++Result.TileMapY;
+    }
+
+    return Result;
+}
+
+internal bool IsWorldPointEmpty(world* World, raw_position Pos)
 {
     bool Empty = false;
 
-    int32 PlayerTileX = TruncateFloatToInt32((Test.X - TileMap->UpperLeftX) / TileMap->TileWidth);
-    int32 PlayerTileY = TruncateFloatToInt32((Test.Y - TileMap->UpperLeftY) / TileMap->TileHeight);
+    canonical_position CanPos = GetCanonicalPosition(World, Pos);
+    tile_map* TileMap = GetTileMap(World, CanPos.TileMapX, CanPos.TileMapY);
+    Empty = IsTileMapPointEmpty(World, TileMap, CanPos.TileX, CanPos.TileY);
 
-    if ((PlayerTileX >= 0) && (PlayerTileX < TileMap->ColumnCount) &&
-        (PlayerTileY >= 0) && (PlayerTileY < TileMap->RowCount))
-    {
-        uint32 Tile = GetTileValueUnchecked(TileMap, PlayerTileX, PlayerTileY);
-        if (Tile == 'd')
-        {
-            Empty = true;
-        }
-    }
     return Empty;
 }
 
@@ -99,11 +143,18 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         (ArrayCount(Input->Controllers[0].Buttons)));
     Assert(sizeof(game_state) <= GameMemory->PermanentStorageSize);
 
+    game_state* GameState = (game_state*)GameMemory->PermanentStorage;
+
+    if (!GameMemory->IsInitialized)
+    {
+        GameState->Player = vec2(40.0f, 250.0f);
+        GameMemory->IsInitialized = true;
+    }
 
 #define TILEMAP_ROW_COUNT (9)
 #define TILEMAP_COLUMN_COUNT (17)
 
-    uint32 Tiles0[TILEMAP_ROW_COUNT][TILEMAP_COLUMN_COUNT] =
+    uint32 Tiles00[TILEMAP_ROW_COUNT][TILEMAP_COLUMN_COUNT] =
     {
         {'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w'},
         {'w', 'g', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'g', 'g',   'd', 'd', 'd', 'd', 'w'},
@@ -116,7 +167,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         {'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w'},
     };
 
-    uint32 Tiles1[TILEMAP_ROW_COUNT][TILEMAP_COLUMN_COUNT] =
+    uint32 Tiles01[TILEMAP_ROW_COUNT][TILEMAP_COLUMN_COUNT] =
     {
         {'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w'},
         {'w', 'g', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'g', 'g',   'g', 'g', 'g', 'g', 'w'},
@@ -125,34 +176,57 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         {'d', 'd', 'd', 'd',   'g', 'g', 'g', 'd',   'd', 'g', 'g', 'g',   'g', 'w', 'w', 'g', 'w'},
         {'w', 'g', 'd', 'g',   'w', 'w', 'g', 'd',   'g', 'g', 'g', 'g',   'g', 'w', 'w', 'g', 'w'},
         {'w', 'g', 'd', 'g',   'w', 'w', 'g', 'd',   'd', 'd', 'g', 'g',   'g', 'w', 'w', 'g', 'w'},
-        {'w', 'g', 'd', 'd',   'd', 'd', 'd', 'd',   'g', 'd', 'd', 'g',   'g', 'g', 'g', 'g', 'w'},
-        {'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w'},
+        {'w', 'g', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'g',   'g', 'g', 'g', 'g', 'w'},
+        {'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'd', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w'},
     };
 
-    tile_map TileMap[2];
-    TileMap[0].ColumnCount = TILEMAP_COLUMN_COUNT;
-    TileMap[0].RowCount = TILEMAP_ROW_COUNT;
-    TileMap[0].UpperLeftX = -30;
-    TileMap[0].UpperLeftY = -30;
-    TileMap[0].TileWidth = 60;
-    TileMap[0].TileHeight = 60;
-    TileMap[0].Tiles = (uint32*)Tiles0;
-
-    TileMap[1] = TileMap[0];
-    TileMap[1].Tiles = (uint32*)Tiles1;
-
-    tile_map *CurrentTileMap = &TileMap[1];
-
-    float PlayerWidth = 0.25f * CurrentTileMap->TileWidth;
-    float PlayerHeight = 0.25f * CurrentTileMap->TileHeight;
-
-    game_state* GameState = (game_state*)GameMemory->PermanentStorage;
-
-    if (!GameMemory->IsInitialized)
+    uint32 Tiles10[TILEMAP_ROW_COUNT][TILEMAP_COLUMN_COUNT] =
     {
-        GameState->Player = vec2(30.0f, 250.0f);
-        GameMemory->IsInitialized = true;
-    }
+        {'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'd', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w'},
+        {'w', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'g', 'g', 'w'},
+        {'w', 'd', 'd', 'd',   'd', 'w', 'g', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'g', 'g', 'w'},
+        {'w', 'd', 'd', 'd',   'd', 'g', 'g', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'w', 'g', 'w'},
+        {'w', 'd', 'd', 'd',   'g', 'g', 'g', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'w', 'g', 'w'},
+        {'w', 'd', 'd', 'd',   'w', 'w', 'g', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'w', 'g', 'w'},
+        {'w', 'd', 'd', 'd',   'w', 'w', 'g', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'w', 'g', 'w'},
+        {'w', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'g', 'g', 'w'},
+        {'d', 'd', 'd', 'd',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w'},
+    };
+
+    uint32 Tiles11[TILEMAP_ROW_COUNT][TILEMAP_COLUMN_COUNT] =
+    {
+        {'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'd', 'w', 'w', 'w',   'w', 'w', 'w', 'd', 'd'},
+        {'w', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd', 'w'},
+        {'w', 'd', 'd', 'd',   'd', 'w', 'g', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'g', 'g', 'w'},
+        {'w', 'd', 'd', 'd',   'd', 'g', 'g', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'w', 'g', 'w'},
+        {'d', 'd', 'd', 'd',   'g', 'g', 'g', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'w', 'g', 'w'},
+        {'w', 'd', 'd', 'd',   'w', 'w', 'g', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'w', 'g', 'w'},
+        {'w', 'd', 'd', 'd',   'w', 'w', 'g', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'w', 'g', 'w'},
+        {'w', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'g', 'g', 'w'},
+        {'w', 'd', 'd', 'd',   'w', 'w', 'w', 'w',   'd', 'd', 'd', 'd',   'w', 'w', 'w', 'w', 'w'},
+    };
+
+    tile_map TileMaps[2][2];
+    TileMaps[0][0].Tiles = (uint32*)Tiles00;
+    TileMaps[0][1].Tiles = (uint32*)Tiles01;
+    TileMaps[1][0].Tiles = (uint32*)Tiles10;
+    TileMaps[1][1].Tiles = (uint32*)Tiles11;
+
+    world World;
+    World.ColumnCount = TILEMAP_COLUMN_COUNT;
+    World.RowCount = TILEMAP_ROW_COUNT;
+    World.UpperLeftX = -30;
+    World.UpperLeftY = -30;
+    World.TileWidth = 60;
+    World.TileHeight = 60;
+    World.TileMapCountX = 2;
+    World.TileMapCountY = 2;
+    World.TileMaps = (tile_map*)TileMaps;
+
+    tile_map* CurrentTileMap = GetTileMap(&World, GameState->PlayerTileMapX, GameState->PlayerTileMapY);
+
+    float PlayerWidth = 0.25f * World.TileWidth;
+    float PlayerHeight = 0.25f * World.TileHeight;
 
     for (int ControllerIndex = 0; ControllerIndex < ArrayCount(Input->Controllers); ++ControllerIndex)
     {
@@ -202,24 +276,35 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         {
             continue;
         }
-
         vec2 NewPlayerPos;
         NewPlayerPos.X = GameState->Player.X + dPlayer.X * Input->DeltaTime;
         NewPlayerPos.Y = GameState->Player.Y + dPlayer.Y * Input->DeltaTime;
 
         float PlayerCollisionWidth = PlayerWidth * 0.25f;
 
-        vec2 BottomRight(NewPlayerPos.X + PlayerCollisionWidth, NewPlayerPos.Y - PlayerHeight*0.1f);
-        vec2 BottomLeft(NewPlayerPos.X - PlayerCollisionWidth, NewPlayerPos.Y - PlayerHeight * 0.1f);
-        vec2 TopRight(NewPlayerPos.X + PlayerCollisionWidth, NewPlayerPos.Y - PlayerHeight*0.5f);
-        vec2 TopLeft(NewPlayerPos.X - PlayerCollisionWidth, NewPlayerPos.Y - PlayerHeight * 0.5f);
+        raw_position BottomRight(GameState->PlayerTileMapX, GameState->PlayerTileMapY,
+            NewPlayerPos.X + PlayerCollisionWidth, NewPlayerPos.Y - PlayerHeight * 0.1f);
 
-        if (IsTileMapPointEmpty(CurrentTileMap, BottomRight) &&
-            IsTileMapPointEmpty(CurrentTileMap, BottomLeft) &&
-            IsTileMapPointEmpty(CurrentTileMap, TopRight) &&
-            IsTileMapPointEmpty(CurrentTileMap, TopLeft))
+        raw_position BottomLeft(GameState->PlayerTileMapX, GameState->PlayerTileMapY,
+            NewPlayerPos.X - PlayerCollisionWidth, NewPlayerPos.Y - PlayerHeight * 0.1f);
+
+        raw_position TopRight(GameState->PlayerTileMapX, GameState->PlayerTileMapY,
+            NewPlayerPos.X + PlayerCollisionWidth, NewPlayerPos.Y - PlayerHeight * 0.5f);
+
+        raw_position TopLeft(GameState->PlayerTileMapX, GameState->PlayerTileMapY,
+            NewPlayerPos.X - PlayerCollisionWidth, NewPlayerPos.Y - PlayerHeight * 0.5f);
+
+        if (IsWorldPointEmpty(&World, BottomRight) &&
+            IsWorldPointEmpty(&World, BottomLeft) &&
+            IsWorldPointEmpty(&World, TopRight) &&
+            IsWorldPointEmpty(&World, TopLeft))
         {
-            GameState->Player = NewPlayerPos;
+            canonical_position CanPos = GetCanonicalPosition(&World, BottomRight);
+            GameState->PlayerTileMapX = CanPos.TileMapX;
+            GameState->PlayerTileMapY = CanPos.TileMapY;
+
+            GameState->Player.X = World.UpperLeftX + World.TileWidth*CanPos.TileMapX + CanPos.X;
+            GameState->Player.Y = World.UpperLeftY + World.TileHeight*CanPos.TileMapY + CanPos.Y;
         }
     }
 
@@ -230,7 +315,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         for (int Column = 0; Column < TILEMAP_COLUMN_COUNT; ++Column)
         {
             color TileColor;
-            switch (GetTileValueUnchecked(CurrentTileMap, Column, Row))
+            switch (GetTileValueUnchecked(&World, CurrentTileMap, Column, Row))
             {
             case 'd':
             {
@@ -250,10 +335,10 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
             }
 
             vec2 Min, Max;
-            Min.X = CurrentTileMap->UpperLeftX + ((float)(Column * CurrentTileMap->TileWidth));
-            Min.Y = CurrentTileMap->UpperLeftY + ((float)(Row * CurrentTileMap->TileHeight));
-            Max.X = Min.X + CurrentTileMap->TileWidth;
-            Max.Y = Min.Y + CurrentTileMap->TileHeight;
+            Min.X = World.UpperLeftX + ((float)(Column * World.TileWidth));
+            Min.Y = World.UpperLeftY + ((float)(Row * World.TileHeight));
+            Max.X = Min.X + World.TileWidth;
+            Max.Y = Min.Y + World.TileHeight;
 
             DrawRectangle(GraphicsBuffer, Min, Max, TileColor);
         }
