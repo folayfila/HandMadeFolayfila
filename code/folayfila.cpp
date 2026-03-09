@@ -120,7 +120,7 @@ inline canonical_position GetCanonicalPosition(world* World, raw_position Pos)
         ++Result.TileMapX;
         Result.X -= World->CountX * World->TileWidth;
     }
-    if (Result.TileY > World->CountY)
+    if (Result.TileY >= World->CountY)
     {
         Result.TileY -= World->CountY;
         ++Result.TileMapY;
@@ -136,7 +136,9 @@ internal bool IsWorldPointEmpty(world* World, raw_position Pos)
 
     canonical_position CanPos = GetCanonicalPosition(World, Pos);
     tile_map* TileMap = GetTileMap(World, CanPos.TileMapX, CanPos.TileMapY);
-    Empty = IsTileMapPointEmpty(World, TileMap, CanPos.TileX, CanPos.TileY);
+    Empty = IsTileMapPointEmpty(World, TileMap, CanPos.TileX, CanPos.TileY) && 
+        (CanPos.TileMapX >= 0 || CanPos.TileMapX < World->CountX) &&
+        (CanPos.TileMapY >= 0 || CanPos.TileMapY < World->CountY);
 
     return Empty;
 }
@@ -151,7 +153,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
     if (!GameMemory->IsInitialized)
     {
-        GameState->Player = vec2(40.0f, 250.0f);
+        GameState->Player = vec2(125.0f, 250.0f);
         GameMemory->IsInitialized = true;
     }
 
@@ -164,42 +166,43 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         {'w', 'g', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'g', 'g',   'd', 'd', 'd', 'd', 'w'},
         {'w', 'g', 'd', 'd',   'd', 'w', 'g', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd', 'w'},
         {'w', 'g', 'd', 'd',   'd', 'g', 'g', 'd',   'd', 'g', 'g', 'g',   'g', 'g', 'd', 'd', 'w'},
-        {'d', 'd', 'd', 'd',   'g', 'g', 'g', 'd',   'd', 'g', 'g', 'g',   'g', 'g', 'd', 'd', 'd'},
+        {'w', 'g', 'd', 'd',   'g', 'g', 'g', 'd',   'd', 'g', 'g', 'g',   'g', 'g', 'd', 'd', 'd'},
         {'w', 'g', 'd', 'g',   'w', 'w', 'g', 'd',   'g', 'g', 'g', 'd',   'g', 'g', 'g', 'd', 'w'},
         {'w', 'g', 'd', 'g',   'w', 'w', 'g', 'd',   'd', 'd', 'g', 'd',   'd', 'd', 'd', 'd', 'w'},
-        {'w', 'g', 'd', 'd',   'd', 'd', 'd', 'd',   'g', 'd', 'd', 'd',   'd', 'd', 'd', 'd', 'w'},
-        {'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w'},
+        {'w', 'g', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd', 'w'},
+        {'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'd', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w'},
     };
 
     uint32 Tiles01[TILEMAP_COUNT_Y][TILEMAP_COUNT_X] =
     {
-        {'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w'},
-        {'w', 'g', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'g', 'g',   'g', 'g', 'g', 'g', 'w'},
-        {'w', 'g', 'd', 'd',   'd', 'w', 'g', 'd',   'd', 'd', 'd', 'g',   'g', 'g', 'g', 'g', 'w'},
-        {'w', 'g', 'd', 'd',   'd', 'g', 'g', 'd',   'd', 'g', 'g', 'g',   'g', 'w', 'w', 'g', 'w'},
-        {'d', 'd', 'd', 'd',   'g', 'g', 'g', 'd',   'd', 'g', 'g', 'g',   'g', 'w', 'w', 'g', 'w'},
-        {'w', 'g', 'd', 'g',   'w', 'w', 'g', 'd',   'g', 'g', 'g', 'g',   'g', 'w', 'w', 'g', 'w'},
-        {'w', 'g', 'd', 'g',   'w', 'w', 'g', 'd',   'd', 'd', 'g', 'g',   'g', 'w', 'w', 'g', 'w'},
-        {'w', 'g', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'g',   'g', 'g', 'g', 'g', 'w'},
         {'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'd', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w'},
+        {'w', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'g', 'g', 'w'},
+        {'w', 'd', 'd', 'd',   'd', 'w', 'g', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'g', 'g', 'w'},
+        {'w', 'd', 'd', 'd',   'd', 'g', 'g', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd', 'w'},
+        {'d', 'd', 'd', 'd',   'g', 'g', 'g', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd', 'w'},
+        {'w', 'd', 'd', 'd',   'w', 'w', 'g', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'w', 'g', 'w'},
+        {'w', 'd', 'd', 'd',   'w', 'w', 'g', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'w', 'g', 'w'},
+        {'w', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'g', 'g', 'w'},
+        {'W', 'W', 'W', 'W',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w'},
+
     };
 
     uint32 Tiles10[TILEMAP_COUNT_Y][TILEMAP_COUNT_X] =
     {
-        {'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'd', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w'},
-        {'w', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'g', 'g', 'w'},
-        {'w', 'd', 'd', 'd',   'd', 'w', 'g', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'g', 'g', 'w'},
-        {'w', 'd', 'd', 'd',   'd', 'g', 'g', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'w', 'g', 'w'},
-        {'w', 'd', 'd', 'd',   'g', 'g', 'g', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'w', 'g', 'w'},
-        {'w', 'd', 'd', 'd',   'w', 'w', 'g', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'w', 'g', 'w'},
-        {'w', 'd', 'd', 'd',   'w', 'w', 'g', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'w', 'g', 'w'},
-        {'w', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'g', 'g', 'w'},
-        {'d', 'd', 'd', 'd',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w'},
+        {'w', 'w', 'w', 'w',   'w', 'w', 'w', 'g',   'd', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w'},
+        {'w', 'g', 'd', 'd',   'd', 'd', 'd', 'g',   'd', 'd', 'g', 'g',   'g', 'g', 'g', 'g', 'w'},
+        {'w', 'w', 'd', 'd',   'd', 'w', 'g', 'd',   'd', 'd', 'd', 'g',   'g', 'g', 'g', 'g', 'w'},
+        {'w', 'w', 'd', 'd',   'd', 'g', 'g', 'd',   'd', 'd', 'g', 'g',   'g', 'w', 'w', 'g', 'w'},
+        {'w', 'w', 'd', 'd',   'g', 'g', 'g', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd', 'd'},
+        {'w', 'g', 'd', 'g',   'w', 'w', 'g', 'd',   'g', 'g', 'g', 'g',   'g', 'w', 'w', 'g', 'w'},
+        {'w', 'g', 'd', 'g',   'w', 'w', 'g', 'd',   'd', 'd', 'g', 'g',   'g', 'w', 'w', 'g', 'w'},
+        {'w', 'g', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'g',   'g', 'g', 'g', 'g', 'w'},
+        {'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w'},
     };
 
     uint32 Tiles11[TILEMAP_COUNT_Y][TILEMAP_COUNT_X] =
     {
-        {'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'd', 'w', 'w', 'w',   'w', 'w', 'w', 'd', 'd'},
+        {'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'd', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w'},
         {'w', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd', 'w'},
         {'w', 'd', 'd', 'd',   'd', 'w', 'g', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'g', 'g', 'w'},
         {'w', 'd', 'd', 'd',   'd', 'g', 'g', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'w', 'g', 'w'},
@@ -207,9 +210,9 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         {'w', 'd', 'd', 'd',   'w', 'w', 'g', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'w', 'g', 'w'},
         {'w', 'd', 'd', 'd',   'w', 'w', 'g', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'w', 'g', 'w'},
         {'w', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'g', 'g', 'w'},
-        {'w', 'd', 'd', 'd',   'w', 'w', 'w', 'w',   'd', 'd', 'd', 'd',   'w', 'w', 'w', 'w', 'w'},
+        {'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w'},
     };
-
+                   // Y   X
     tile_map TileMaps[2][2];
     TileMaps[0][0].Tiles = (uint32*)Tiles00;
     TileMaps[0][1].Tiles = (uint32*)Tiles01;
@@ -298,10 +301,10 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         raw_position TopLeft(GameState->PlayerTileMapX, GameState->PlayerTileMapY,
             NewPlayerPos.X - PlayerCollisionWidth, NewPlayerPos.Y - PlayerHeight * 0.5f);
 
-        //if (IsWorldPointEmpty(&World, BottomRight) &&
-        //    IsWorldPointEmpty(&World, BottomLeft) &&
-        //    IsWorldPointEmpty(&World, TopRight) &&
-        //    IsWorldPointEmpty(&World, TopLeft))
+        if (IsWorldPointEmpty(&World, BottomRight) &&
+            IsWorldPointEmpty(&World, BottomLeft) &&
+            IsWorldPointEmpty(&World, TopRight) &&
+            IsWorldPointEmpty(&World, TopLeft))
         {
             raw_position PlayerPos(GameState->PlayerTileMapX, GameState->PlayerTileMapY,
                 NewPlayerPos.X, NewPlayerPos.Y);
