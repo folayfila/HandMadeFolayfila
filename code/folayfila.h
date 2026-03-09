@@ -243,8 +243,8 @@ struct tile_map
 
 struct world
 {
-    int32 RowCount;
-    int32 ColumnCount;
+    int32 CountX;
+    int32 CountY;
 
     float UpperLeftX;
     float UpperLeftY;
