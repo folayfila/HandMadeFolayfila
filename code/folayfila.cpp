@@ -1,6 +1,7 @@
 // (C) Copyright 2026 by Abdallah Maaliki / folayfila.
 
 #include "folayfila.h"
+#include "folayfila_intrinsics.h"
 
 internal void GameOutputSound(game_state* GameState, game_output_sound_buffer* SoundBuffer)
 {
@@ -35,7 +36,10 @@ internal void DrawRectangle(game_graphics_buffer* Buffer, vec2 Min, vec2 Max, co
     int32 MaxY = Clamp32(RoundFloatToInt32(Max.Y), 0, Buffer->Height);
 
     uint8* Row = ((uint8*)Buffer->Memory + MinX * Buffer->BytesPerPixel + MinY * Buffer->Pitch);
-    uint32 Color32 = GetColorU32(Color);
+    
+    uint32 Color32 = ((RoundFloatToUInt32(Color.R * 255) << 16) |
+        (RoundFloatToUInt32(Color.G * 255) << 8) |
+        (RoundFloatToUInt32(Color.B * 255) << 0));
 
     for (int Y = MinY; Y < MaxY; ++Y)
     {
@@ -67,9 +71,9 @@ inline uint32 GetTileValueUnchecked(world* World, tile_map* TileMap, int32 TileX
     return TileMapValue;
 }
 
-inline bool IsTileMapPointEmpty(world *World, tile_map *TileMap, int32 TestTileX, int32 TestTileY)
+inline bool32 IsTileMapPointEmpty(world *World, tile_map *TileMap, int32 TestTileX, int32 TestTileY)
 {
-    bool Empty = false;
+    bool32 Empty = false;
     if (TileMap)
     {
         if ((TestTileX >= 0) && (TestTileX < World->CountX) &&
@@ -82,59 +86,41 @@ inline bool IsTileMapPointEmpty(world *World, tile_map *TileMap, int32 TestTileX
     return Empty;
 }
 
-inline canonical_position GetCanonicalPosition(world* World, raw_position Pos)
+inline void CannonicalizeCoord(world* World, int32 TileCount, int32 *TileMap, int32 *Tile, float *TileRel)
 {
-    canonical_position Result;
+    int32 Offset = FloorFloatToInt32(*TileRel / World->TileSideInMeters);
+    *Tile += Offset;
+    *TileRel -= Offset * World->TileSideInMeters;
 
-    Result.TileMapX = Pos.TileMapX;
-    Result.TileMapY = Pos.TileMapY;
+    Assert(*TileRel >= 0);
+    Assert(*TileRel < World->TileSideInMeters);
 
-    Result.X = Pos.X;
-    Result.Y = Pos.Y;
-
-    float X = Pos.X - World->UpperLeftX;
-    float Y = Pos.Y - World->UpperLeftY;
-    Result.TileX = FloorFloatToInt32(X / World->TileWidth);
-    Result.TileY = FloorFloatToInt32(Y / World->TileHeight);
-
-    //Assert(Result.X >= 0);
-    //Assert(Result.Y >= 0);
-    //Assert(Result.X < World->TileWidth);
-    //Assert(Result.Y < World->TileHeight);
-
-    if (Result.TileX < 0)
+    if (*Tile < 0)
     {
-        Result.TileX += World->CountX;
-        --Result.TileMapX;
-        Result.X += World->CountX * World->TileWidth;
+        *Tile += TileCount;
+        --*TileMap;
     }
-    if (Result.TileY < 0)
+    if (*Tile >= TileCount)
     {
-        Result.TileY += World->CountY;
-        --Result.TileMapY;
-        Result.Y += World->CountY * World->TileHeight;
+        *Tile -= TileCount;
+        ++*TileMap;
     }
-    if (Result.TileX >= World->CountX)
-    {
-        Result.TileX -= World->CountX;
-        ++Result.TileMapX;
-        Result.X -= World->CountX * World->TileWidth;
-    }
-    if (Result.TileY >= World->CountY)
-    {
-        Result.TileY -= World->CountY;
-        ++Result.TileMapY;
-        Result.Y -= World->CountY * World->TileHeight;
-    }
+}
+
+inline canonical_position RecanonicalizePosition(world* World, canonical_position Pos)
+{
+    canonical_position Result = Pos;
+
+    CannonicalizeCoord(World, World->CountX, &Result.TileMapX, &Result.TileX, &Result.TileRelX);
+    CannonicalizeCoord(World, World->CountY,  &Result.TileMapY, &Result.TileY, &Result.TileRelY);
 
     return Result;
 }
 
-internal bool IsWorldPointEmpty(world* World, raw_position Pos)
+internal bool32 IsWorldPointEmpty(world* World, canonical_position CanPos)
 {
-    bool Empty = false;
+    bool32 Empty = false;
 
-    canonical_position CanPos = GetCanonicalPosition(World, Pos);
     tile_map* TileMap = GetTileMap(World, CanPos.TileMapX, CanPos.TileMapY);
     Empty = IsTileMapPointEmpty(World, TileMap, CanPos.TileX, CanPos.TileY) && 
         (CanPos.TileMapX >= 0 || CanPos.TileMapX < World->CountX) &&
@@ -153,7 +139,13 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
     if (!GameMemory->IsInitialized)
     {
-        GameState->Player = vec2(125.0f, 250.0f);
+        GameState->PlayerP.TileMapX = 0;
+        GameState->PlayerP.TileMapY = 0;
+        GameState->PlayerP.TileX = 3;
+        GameState->PlayerP.TileY = 3;
+        GameState->PlayerP.TileRelX = 0.5f;
+        GameState->PlayerP.TileRelY = 0.5f;
+
         GameMemory->IsInitialized = true;
     }
 
@@ -175,7 +167,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
     uint32 Tiles01[TILEMAP_COUNT_Y][TILEMAP_COUNT_X] =
     {
-        {'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'd', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w'},
+        {'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w'},
         {'w', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'g', 'g', 'w'},
         {'w', 'd', 'd', 'd',   'd', 'w', 'g', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'g', 'g', 'w'},
         {'w', 'd', 'd', 'd',   'd', 'g', 'g', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd', 'w'},
@@ -183,7 +175,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         {'w', 'd', 'd', 'd',   'w', 'w', 'g', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'w', 'g', 'w'},
         {'w', 'd', 'd', 'd',   'w', 'w', 'g', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'w', 'g', 'w'},
         {'w', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'g', 'g', 'w'},
-        {'W', 'W', 'W', 'W',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w'},
+        {'W', 'W', 'W', 'W',   'w', 'w', 'w', 'w',   'd', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w'},
 
     };
 
@@ -220,20 +212,23 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     TileMaps[1][1].Tiles = (uint32*)Tiles11;
 
     world World;
+    World.TileSideInMeters = 1.4f;
+    World.TileSideInPixels = 60;
+    World.MetersToPixels = (float)World.TileSideInPixels/World.TileSideInMeters;
     World.CountX = TILEMAP_COUNT_X;
     World.CountY = TILEMAP_COUNT_Y;
-    World.UpperLeftX = -30;
-    World.UpperLeftY = -30;
-    World.TileWidth = 60;
-    World.TileHeight = 60;
+
+    World.UpperLeftX = -(float)World.TileSideInMeters*30.0f;
+    World.UpperLeftY = -(float)World.TileSideInMeters*30.0f;
+
     World.TileMapCountX = 2;
     World.TileMapCountY = 2;
     World.TileMaps = (tile_map*)TileMaps;
 
-    tile_map* CurrentTileMap = GetTileMap(&World, GameState->PlayerTileMapX, GameState->PlayerTileMapY);
+    tile_map* CurrentTileMap = GetTileMap(&World, GameState->PlayerP.TileMapX, GameState->PlayerP.TileMapY);
 
-    float PlayerWidth = 0.25f * World.TileWidth;
-    float PlayerHeight = 0.25f * World.TileHeight;
+    float PlayerWidth = 0.25f * World.TileSideInMeters;
+    float PlayerHeight = 0.25f * World.TileSideInMeters;
 
     for (int ControllerIndex = 0; ControllerIndex < ArrayCount(Input->Controllers); ++ControllerIndex)
     {
@@ -254,66 +249,54 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         vec2 dPlayer(0.0f);
         if (ControllerInput->MoveDown.EndedDown)
         {
-            dPlayer.Y += 10.0f;
+            dPlayer.Y += 1.0f;
         }
         if (ControllerInput->MoveUp.EndedDown)
         {
-            dPlayer.Y -= 10.0f;
+            dPlayer.Y -= 1.0f;
         }
         if (ControllerInput->MoveRight.EndedDown)
         {
-            dPlayer.X += 10.0f;
+            dPlayer.X += 1.0f;
         }
         if (ControllerInput->MoveLeft.EndedDown)
         {
-            dPlayer.X -= 10.0f;
+            dPlayer.X -= 1.0f;
         }
 
         if (ControllerInput->RightShoulder.EndedDown)
         {
-            dPlayer.X += 100.0f;
+            dPlayer.X += 10.0f;
         }
         if (ControllerInput->LeftShoulder.EndedDown)
         {
-            dPlayer.X -= 100.0f;
+            dPlayer.X -= 10.0f;
         }
-        dPlayer = dPlayer * 10.0f;
+        dPlayer = (dPlayer * 10.0f) * Input->DeltaTime;
 
         if (dPlayer.X == 0 && dPlayer.Y == 0)
         {
             continue;
         }
-        vec2 NewPlayerPos;
-        NewPlayerPos.X = GameState->Player.X + dPlayer.X * Input->DeltaTime;
-        NewPlayerPos.Y = GameState->Player.Y + dPlayer.Y * Input->DeltaTime;
+        canonical_position NewPlayerP = GameState->PlayerP;
+        NewPlayerP.TileRelX += dPlayer.X;
+        NewPlayerP.TileRelY += dPlayer.Y;
+        NewPlayerP = RecanonicalizePosition(&World, NewPlayerP);
 
         float PlayerCollisionWidth = PlayerWidth * 0.25f;
 
-        raw_position BottomRight(GameState->PlayerTileMapX, GameState->PlayerTileMapY,
-            NewPlayerPos.X + PlayerCollisionWidth, NewPlayerPos.Y - PlayerHeight * 0.1f);
+        canonical_position PlayerRight = NewPlayerP;
+        PlayerRight.TileRelX += PlayerCollisionWidth;
+        RecanonicalizePosition(&World, PlayerRight);
 
-        raw_position BottomLeft(GameState->PlayerTileMapX, GameState->PlayerTileMapY,
-            NewPlayerPos.X - PlayerCollisionWidth, NewPlayerPos.Y - PlayerHeight * 0.1f);
+        canonical_position PlayerLeft = NewPlayerP;
+        PlayerLeft.TileRelX -= PlayerCollisionWidth;
+        RecanonicalizePosition(&World, PlayerLeft);
 
-        raw_position TopRight(GameState->PlayerTileMapX, GameState->PlayerTileMapY,
-            NewPlayerPos.X + PlayerCollisionWidth, NewPlayerPos.Y - PlayerHeight * 0.5f);
-
-        raw_position TopLeft(GameState->PlayerTileMapX, GameState->PlayerTileMapY,
-            NewPlayerPos.X - PlayerCollisionWidth, NewPlayerPos.Y - PlayerHeight * 0.5f);
-
-        if (IsWorldPointEmpty(&World, BottomRight) &&
-            IsWorldPointEmpty(&World, BottomLeft) &&
-            IsWorldPointEmpty(&World, TopRight) &&
-            IsWorldPointEmpty(&World, TopLeft))
+        if (IsWorldPointEmpty(&World, PlayerRight) &&
+            IsWorldPointEmpty(&World, PlayerLeft))
         {
-            raw_position PlayerPos(GameState->PlayerTileMapX, GameState->PlayerTileMapY,
-                NewPlayerPos.X, NewPlayerPos.Y);
-            canonical_position CanPos = GetCanonicalPosition(&World, PlayerPos);
-            GameState->PlayerTileMapX = CanPos.TileMapX;
-            GameState->PlayerTileMapY = CanPos.TileMapY;
-
-            GameState->Player.X = CanPos.X;
-            GameState->Player.Y = CanPos.Y;
+            GameState->PlayerP = NewPlayerP;
         }
     }
 
@@ -343,20 +326,31 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
             } break;
             }
 
+            if ((Column == GameState->PlayerP.TileX) && (Row == GameState->PlayerP.TileY))
+            {
+                TileColor = color(1.0f, 0.0f, 0.0f);
+            }
+
             vec2 Min, Max;
-            Min.X = World.UpperLeftX + ((float)(Column * World.TileWidth));
-            Min.Y = World.UpperLeftY + ((float)(Row * World.TileHeight));
-            Max.X = Min.X + World.TileWidth;
-            Max.Y = Min.Y + World.TileHeight;
+            Min.X = World.UpperLeftX + ((float)(Column * World.TileSideInPixels));
+            Min.Y = World.UpperLeftY + ((float)(Row * World.TileSideInPixels));
+            Max.X = Min.X + World.TileSideInPixels;
+            Max.Y = Min.Y + World.TileSideInPixels;
 
             DrawRectangle(GraphicsBuffer, Min, Max, TileColor);
         }
     }
 
     color PlayerColor(1.0f, 0.5f, 0.5f);
-    vec2 PlayerTopLeft = vec2(GameState->Player.X - 0.5f*PlayerWidth, GameState->Player.Y - PlayerHeight);
-    vec2 PlayerBottomRight = vec2(PlayerTopLeft.X + PlayerWidth, PlayerTopLeft.Y + PlayerHeight);
-    DrawRectangle(GraphicsBuffer, PlayerTopLeft, PlayerBottomRight, PlayerColor);
+    float Left = World.UpperLeftX + World.MetersToPixels*World.TileSideInMeters*GameState->PlayerP.TileX +
+        World.MetersToPixels*GameState->PlayerP.TileRelX - World.MetersToPixels*(0.25f*PlayerWidth);
+
+    float Top = World.UpperLeftY + World.MetersToPixels*World.TileSideInMeters*GameState->PlayerP.TileY +
+        World.MetersToPixels*GameState->PlayerP.TileRelY - World.MetersToPixels*PlayerHeight;
+    
+    DrawRectangle(GraphicsBuffer, vec2(Left, Top),
+        vec2(Left + World.MetersToPixels*PlayerWidth, Top + World.MetersToPixels*PlayerHeight),
+        PlayerColor);
 }
 /****************************************************************************/
 // Old code

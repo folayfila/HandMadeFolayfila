@@ -4,7 +4,6 @@
 #define FOLAYFILA_H
 
 #include <stdint.h>
-#include <math.h>
 
 /************** typedef ***************/
 typedef int8_t int8;
@@ -50,12 +49,6 @@ typedef int32 bool32;
 
 #define ArrayCount(Array) (sizeof(Array) / sizeof((Array)[0]))
 
-inline uint32 SafeTruncateUInt64(uint64 Value)
-{
-    Assert(Value <= 0xffffffff);
-    return ((uint32)Value);
-}
-
 inline int StringLength(char* String)
 {
     int Count = 0;
@@ -81,44 +74,6 @@ inline void CatStrings(size_t SourceACount, char* SourceA,
     }
 
     *Dest++ = 0;
-}
-
-inline int32 Clamp32(int32 Value, int32 Min, int32 Max)
-{
-    if (Value < Min)
-    {
-        Value = Min;
-    }
-    else if (Value > Max)
-    {
-        Value = Max;
-    }
-    return Value;
-}
-
-inline int32 RoundFloatToInt32(float Float)
-{
-    int32 Result = (int32)(Float + 0.5f);
-    return Result;
-}
-
-inline int32 TruncateFloatToInt32(float Float)
-{
-    int32 Result = (int32)(Float);
-    return Result;
-}
-
-inline int32 FloorFloatToInt32(float Float)
-{
-    int32 Result = (int32)(Float);
-    return Result;
-}
-
-
-inline uint32 RoundFloatToUInt32(float Float)
-{
-    uint32 Result = (uint32)(Float + 0.5f);
-    return Result;
 }
 /**************************************/
 
@@ -179,7 +134,7 @@ struct vec2
 struct color
 {
     color() {}
-    color(float r, float g, float b, bool Is255 = false)
+    color(float r, float g, float b, bool32 Is255 = false)
     {
         if (Is255)
         {
@@ -198,13 +153,6 @@ struct color
     float G;
     float B;
 };
-inline uint32 GetColorU32(color Color)
-{
-    uint32 ColorU32 = ((RoundFloatToUInt32(Color.R * 255) << 16) |
-                       (RoundFloatToUInt32(Color.G * 255) << 8) |
-                       (RoundFloatToUInt32(Color.B * 255) << 0));
-    return ColorU32;
-}
 
 struct canonical_position
 {
@@ -214,26 +162,11 @@ struct canonical_position
     int32 TileX;
     int32 TileY;
 
-    float X;
-    float Y;
-};
+    uint32 _TileX;
+    uint32 _TileY;
 
-struct raw_position
-{
-    raw_position() {}
-    raw_position(int32 InTileMapX, int32 InTileMapY, float InX, float InY)
-    {
-        TileMapX = InTileMapX;
-        TileMapY = InTileMapY;
-
-        X = InX;
-        Y = InY;
-    }
-    int32 TileMapX;
-    int32 TileMapY;
-
-    float X;
-    float Y;
+    float TileRelX;
+    float TileRelY;
 };
 
 struct tile_map
@@ -243,13 +176,15 @@ struct tile_map
 
 struct world
 {
+    float TileSideInMeters;
+    int32 TileSideInPixels;
+    float MetersToPixels;
+
     int32 CountX;
     int32 CountY;
 
     float UpperLeftX;
     float UpperLeftY;
-    float TileWidth;
-    float TileHeight;
 
     int32 TileMapCountX;
     int32 TileMapCountY;
@@ -378,10 +313,7 @@ typedef GAME_UPDATE_AND_RENDER(game_update_and_render);
 /// 
 struct game_state
 {
-    int32 PlayerTileMapX;
-    int32 PlayerTileMapY;
-
-    vec2 Player;
+    canonical_position PlayerP;
 };
 
 

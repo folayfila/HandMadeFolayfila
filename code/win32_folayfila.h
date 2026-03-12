@@ -45,7 +45,7 @@ struct win32_game_code
     
     // Callback must be valid. Check for null before usage.
     game_update_and_render* UpdateAndRender;
-    bool IsValid;
+    bool32 IsValid;
 };
 
 #define WIN32_STATE_FILE_NAME_COUNT MAX_PATH

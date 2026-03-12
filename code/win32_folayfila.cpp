@@ -1,6 +1,7 @@
 // (C) Copyright 2026 by Abdallah Maaliki / folayfila.
 
 #include "win32_folayfila.h"
+#include "folayfila_intrinsics.h"
 #include <xinput.h>
 #include <dsound.h>
 #include <stdio.h>
@@ -35,7 +36,7 @@ internal win32_game_code Win32LoadGameCode(char* SourceDLLName, char* TempDLLNam
     if (Result.GameCodeDLL)
     {
         Result.UpdateAndRender = (game_update_and_render*)GetProcAddress(Result.GameCodeDLL, "GameUpdateAndRender");
-        Result.IsValid = (Result.UpdateAndRender);
+        Result.IsValid = (Result.UpdateAndRender != nullptr);
     }
 
     if(!Result.IsValid)
