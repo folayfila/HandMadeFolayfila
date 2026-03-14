@@ -57,6 +57,11 @@ inline float Sin(float Angle)
     return Result;
 }
 
+inline uint32 AbsoluteInt32ToUInt32(int32 Value)
+{
+    uint32 Result = (uint32)(Value < 0 ? Value*-1 : Value);
+    return Result;
+}
 
 inline float Cos(float Angle)
 {

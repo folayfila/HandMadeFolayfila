@@ -154,42 +154,43 @@ struct color
     float B;
 };
 
-struct canonical_position
+struct tile_chunk_position
 {
-    int32 TileMapX;
-    int32 TileMapY;
+    uint32 TilChunkX;
+    uint32 TilChunkY;
 
-    int32 TileX;
-    int32 TileY;
+    uint32 RelTileX;
+    uint32 RelTileY;
+};
 
-    uint32 _TileX;
-    uint32 _TileY;
+struct world_position
+{
+    uint32 AbsTileX;
+    uint32 AbsTileY;
 
     float TileRelX;
     float TileRelY;
 };
 
-struct tile_map
+struct tile_chunk
 {
     uint32* Tiles;
 };
 
 struct world
 {
+    uint32 ChunkShift;
+    uint32 ChunkMask;
+    uint32 ChunkDim;
+
     float TileSideInMeters;
     int32 TileSideInPixels;
     float MetersToPixels;
 
-    int32 CountX;
-    int32 CountY;
+    int32 TileChunkCountX;
+    int32 TileChunkCountY;
 
-    float UpperLeftX;
-    float UpperLeftY;
-
-    int32 TileMapCountX;
-    int32 TileMapCountY;
-
-    tile_map* TileMaps;
+    tile_chunk* TileChunks;
 };
 
 struct game_graphics_buffer
@@ -313,7 +314,7 @@ typedef GAME_UPDATE_AND_RENDER(game_update_and_render);
 /// 
 struct game_state
 {
-    canonical_position PlayerP;
+    world_position PlayerP;
 };
 
 
