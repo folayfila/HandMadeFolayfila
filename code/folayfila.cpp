@@ -30,9 +30,9 @@ internal void DrawRectangle(game_graphics_buffer* Buffer, vec2 Min, vec2 Max, co
 {
     uint8* EndOfBuffer = (uint8*)Buffer->Memory + Buffer->Pitch * Buffer->Height;
 
-    int32 MinX = Clamp32(RoundFloatToInt32(Min.X), 0, RoundFloatToInt32(Min.X));
+    int32 MinX = Clamp32(RoundFloatToInt32(Min.X), 0, Buffer->Width);
     int32 MaxX = Clamp32(RoundFloatToInt32(Max.X), 0, Buffer->Width);
-    int32 MinY = Clamp32(RoundFloatToInt32(Min.Y), 0, RoundFloatToInt32(Min.Y));
+    int32 MinY = Clamp32(RoundFloatToInt32(Min.Y), 0, Buffer->Height);
     int32 MaxY = Clamp32(RoundFloatToInt32(Max.Y), 0, Buffer->Height);
 
     uint8* Row = ((uint8*)Buffer->Memory + MinX * Buffer->BytesPerPixel + MinY * Buffer->Pitch);
@@ -155,15 +155,23 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
     uint32 Tiles[TILEMAP_COUNT_X][TILEMAP_COUNT_Y] =
     {
-        {'d', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd', 'w', 'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd', 'd', 'd', 'd', 'd', 'd',   'w', 'w', 'w', 'g',   'd', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'd', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w'},
-        {'w', 'g', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'g', 'g',   'd', 'd', 'd', 'd', 'w', 'w', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'g', 'g', 'w', 'w', 'g', 'd', 'd',   'd', 'd', 'd', 'g',   'd', 'd', 'g', 'g',   'g', 'g', 'g', 'g', 'w', 'w', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd', 'w'},
-        {'w', 'g', 'd', 'd',   'd', 'w', 'g', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd', 'w', 'w', 'd', 'd', 'd',   'd', 'w', 'g', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'g', 'g', 'w', 'w', 'w', 'd', 'd',   'd', 'w', 'g', 'd',   'd', 'd', 'd', 'g',   'g', 'g', 'g', 'g', 'w', 'w', 'd', 'd', 'd',   'd', 'w', 'g', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'g', 'g', 'w'},
-        {'w', 'g', 'd', 'd',   'd', 'g', 'g', 'd',   'd', 'g', 'g', 'g',   'g', 'g', 'd', 'd', 'w', 'w', 'd', 'd', 'd',   'd', 'g', 'g', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd', 'w', 'w', 'w', 'd', 'd',   'd', 'g', 'g', 'd',   'd', 'd', 'g', 'g',   'g', 'w', 'w', 'g', 'w', 'w', 'd', 'd', 'd',   'd', 'g', 'g', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'w', 'g', 'w'},
-        {'w', 'g', 'd', 'd',   'g', 'g', 'g', 'd',   'd', 'g', 'g', 'g',   'g', 'g', 'd', 'd', 'd', 'd', 'd', 'd', 'd',   'g', 'g', 'g', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd', 'w', 'w', 'w', 'd', 'd',   'g', 'g', 'g', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd', 'd', 'd', 'd', 'd', 'd',   'g', 'g', 'g', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'w', 'g', 'w'},
-        {'w', 'g', 'd', 'g',   'w', 'w', 'g', 'd',   'g', 'g', 'g', 'd',   'g', 'g', 'g', 'd', 'w', 'w', 'd', 'd', 'd',   'w', 'w', 'g', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'w', 'g', 'w', 'w', 'g', 'd', 'g',   'w', 'w', 'g', 'd',   'g', 'g', 'g', 'g',   'g', 'w', 'w', 'g', 'w', 'w', 'd', 'd', 'd',   'w', 'w', 'g', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'w', 'g', 'w'},
-        {'w', 'g', 'd', 'g',   'w', 'w', 'g', 'd',   'd', 'd', 'g', 'd',   'd', 'd', 'd', 'd', 'w', 'w', 'd', 'd', 'd',   'w', 'w', 'g', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'w', 'g', 'w', 'w', 'g', 'd', 'g',   'w', 'w', 'g', 'd',   'd', 'd', 'g', 'g',   'g', 'w', 'w', 'g', 'w', 'w', 'd', 'd', 'd',   'w', 'w', 'g', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'w', 'g', 'w'},
-        {'w', 'g', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd', 'w', 'w', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'g', 'g', 'w', 'w', 'g', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'g',   'g', 'g', 'g', 'g', 'w', 'w', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'g', 'g', 'w'},
-        {'d', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd', 'w', 'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd', 'd', 'd', 'd', 'd', 'd',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w'},
+        {'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w'},
+
+        {'w', 'g', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'g', 'g',   'd', 'd', 'd', 'd', 'w', 'w', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'g', 'g', 'w', 'w', 'g', 'd', 'd',   'd', 'd', 'd', 'g',   'd', 'd', 'g', 'g',   'g', 'g', 'g', 'g', 'w', 'w', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'w', 'w', 'w'},
+        {'w', 'g', 'd', 'd',   'd', 'w', 'g', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd', 'w', 'w', 'd', 'd', 'd',   'd', 'w', 'g', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'g', 'g', 'w', 'w', 'w', 'd', 'd',   'd', 'w', 'g', 'd',   'd', 'd', 'd', 'g',   'g', 'g', 'g', 'g', 'w', 'w', 'd', 'd', 'd',   'd', 'w', 'g', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'w', 'w', 'w'},
+        {'w', 'g', 'd', 'd',   'd', 'g', 'g', 'd',   'd', 'g', 'g', 'g',   'g', 'g', 'd', 'd', 'w', 'w', 'd', 'd', 'd',   'd', 'g', 'g', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd', 'w', 'w', 'w', 'd', 'd',   'd', 'g', 'g', 'd',   'd', 'd', 'g', 'g',   'g', 'w', 'w', 'g', 'w', 'w', 'd', 'd', 'd',   'd', 'g', 'g', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'w', 'w', 'w'},
+        {'w', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd', 'd', 'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd', 'd', 'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd', 'd', 'd', 'd', 'd', 'd',   'g', 'g', 'g', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'w', 'w', 'w'},
+        {'w', 'g', 'd', 'g',   'w', 'w', 'g', 'd',   'g', 'g', 'g', 'd',   'g', 'g', 'g', 'd', 'w', 'w', 'd', 'd', 'd',   'w', 'w', 'g', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'w', 'g', 'w', 'w', 'g', 'd', 'g',   'w', 'w', 'g', 'd',   'g', 'g', 'g', 'g',   'g', 'w', 'w', 'g', 'w', 'w', 'd', 'd', 'd',   'w', 'w', 'g', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'w', 'w', 'w'},
+        {'w', 'g', 'd', 'g',   'w', 'w', 'g', 'd',   'd', 'd', 'g', 'd',   'd', 'd', 'd', 'd', 'w', 'w', 'd', 'd', 'd',   'w', 'w', 'g', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'w', 'g', 'w', 'w', 'g', 'd', 'g',   'w', 'w', 'g', 'd',   'd', 'd', 'g', 'g',   'g', 'w', 'w', 'g', 'w', 'w', 'd', 'd', 'd',   'w', 'w', 'g', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'w', 'w', 'w'},
+        {'w', 'g', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd', 'w', 'w', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'g', 'g', 'w', 'w', 'g', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'g',   'g', 'g', 'g', 'g', 'w', 'w', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'w', 'w', 'w'},
+
+        {'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w'},
+        {'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w'},
+        {'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w'},
+        {'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w'},
+        {'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w'},
+        {'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w'},
+        {'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w'}
     };
 
     tile_chunk TileChunk;
@@ -183,8 +191,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
     World.TileChunks = &TileChunk;
 
-    float LowerLeftX = -35.0f;
-    float LowerLeftY = (float)GraphicsBuffer->Height - 50.0f;
+    float CenterX = 0.5f * (float)GraphicsBuffer->Width;
+    float CenterY = 0.5f * (float)GraphicsBuffer->Height;
 
     float PlayerWidth = 0.25f * World.TileSideInMeters;
     float PlayerHeight = 0.25f * World.TileSideInMeters;
@@ -244,11 +252,9 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
         world_position PlayerBottomRight = NewPlayerP;
         PlayerBottomRight.TileRelX += PlayerWidth;
-        PlayerBottomRight.TileRelY -= PlayerHeight;
         PlayerBottomRight = RecanonicalizePosition(&World, PlayerBottomRight);
 
         world_position PlayerBootmLeft = NewPlayerP;
-        PlayerBootmLeft.TileRelY -= PlayerHeight;
         PlayerBootmLeft = RecanonicalizePosition(&World, PlayerBootmLeft);
 
         if (IsWorldPointEmpty(&World, PlayerBottomRight) &&
@@ -260,14 +266,14 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
     DrawRectangle(GraphicsBuffer, vec2(0.0f), vec2(1000.0f), color(0.0f, 0.0f, 0.0f));
 
-    for (uint32 Row = 0; Row < 9; ++Row)
+    for (int32 RelRow = -10; RelRow < 10; ++RelRow)
     {
-        for (uint32 Column = 0; Column < 17; ++Column)
+        for (int32 RelColumn = -20; RelColumn < 20; ++RelColumn)
         {
             color TileColor;
-            uint32 AbsColumn = GameState->PlayerP.AbsTileX + Column;
-            uint32 AbsRow = GameState->PlayerP.AbsTileY + Row;
-            switch (GetTileValue(&World, &TileChunk, AbsColumn, AbsRow))
+            uint32 Column = (uint32)Clamp32(GameState->PlayerP.AbsTileX + RelColumn, 0, World.ChunkDim-1);
+            uint32 Row = (uint32)Clamp32(GameState->PlayerP.AbsTileY + RelRow, 0, World.ChunkDim-1);
+            switch (GetTileValue(&World, &TileChunk, Column, Row))
             {
             case 'd':
             {
@@ -282,31 +288,31 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
             case 'w':
             {
                 // Water
-                TileColor = color(0.0f, 0.1f, 0.8f);
+                TileColor = color(0.2f, 0.75f, 0.95f);
             } break;
+            default:
+            {
+                TileColor = color(0.7f, 0.7f, 0.7f);
+            }break;
             }
 
-            if ((Column == GameState->PlayerP.AbsTileX) && (Row == GameState->PlayerP.AbsTileY))
-            {
-                TileColor = color(1.0f, 0.0f, 0.0f);
-            }
+            float PlayerOffsetX = World.MetersToPixels * GameState->PlayerP.TileRelX;
+            float PlayerOffsetY = World.MetersToPixels * GameState->PlayerP.TileRelY;
 
             vec2 Min, Max;
-            Min.X = LowerLeftX + ((float)(Column * World.TileSideInPixels));
-            Min.Y = (LowerLeftY - ((float)(Row * World.TileSideInPixels))) - World.TileSideInPixels;
+            Min.X = CenterX + (float)RelColumn * World.TileSideInPixels - PlayerOffsetX;
+            Min.Y = CenterY - (float)RelRow * World.TileSideInPixels + PlayerOffsetY - World.TileSideInPixels;
+
             Max.X = Min.X + World.TileSideInPixels;
-            Max.Y = LowerLeftY - ((float)(Row * World.TileSideInPixels));
+            Max.Y = CenterY - (float)RelRow * World.TileSideInPixels + PlayerOffsetY;
 
             DrawRectangle(GraphicsBuffer, Min, Max, TileColor);
         }
     }
 
     color PlayerColor(1.0f, 0.5f, 0.5f);
-    float Left = LowerLeftX + (GameState->PlayerP.AbsTileX*World.TileSideInPixels) +
-        World.MetersToPixels*GameState->PlayerP.TileRelX;
-
-    float Bottom = LowerLeftY - (GameState->PlayerP.AbsTileY * World.TileSideInPixels) -
-        World.MetersToPixels*GameState->PlayerP.TileRelY;
+    float Left = CenterX;
+    float Bottom = CenterY - World.MetersToPixels*PlayerHeight;
     
     DrawRectangle(GraphicsBuffer, vec2(Left, Bottom),
         vec2(Left + World.MetersToPixels*PlayerWidth, Bottom + World.MetersToPixels*PlayerHeight),
