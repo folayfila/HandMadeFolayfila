@@ -142,8 +142,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
     if (!GameMemory->IsInitialized)
     {
-        GameState->PlayerP.AbsTileX = 3;
-        GameState->PlayerP.AbsTileY = 3;
+        GameState->PlayerP.AbsTileX = 2;
+        GameState->PlayerP.AbsTileY = 4;
         GameState->PlayerP.TileRelX = 0.5f;
         GameState->PlayerP.TileRelY = 0.5f;
 
@@ -153,9 +153,9 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 #define TILEMAP_COUNT_X (256)
 #define TILEMAP_COUNT_Y (256)
 
-    uint32 Tiles[TILEMAP_COUNT_Y][TILEMAP_COUNT_X] =
+    uint32 Tiles[TILEMAP_COUNT_X][TILEMAP_COUNT_Y] =
     {
-        {'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w',   'w', 'w', 'w', 'g',   'd', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'd', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w'},
+        {'d', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd', 'w', 'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd', 'd', 'd', 'd', 'd', 'd',   'w', 'w', 'w', 'g',   'd', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'd', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w'},
         {'w', 'g', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'g', 'g',   'd', 'd', 'd', 'd', 'w', 'w', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'g', 'g', 'w', 'w', 'g', 'd', 'd',   'd', 'd', 'd', 'g',   'd', 'd', 'g', 'g',   'g', 'g', 'g', 'g', 'w', 'w', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd', 'w'},
         {'w', 'g', 'd', 'd',   'd', 'w', 'g', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd', 'w', 'w', 'd', 'd', 'd',   'd', 'w', 'g', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'g', 'g', 'w', 'w', 'w', 'd', 'd',   'd', 'w', 'g', 'd',   'd', 'd', 'd', 'g',   'g', 'g', 'g', 'g', 'w', 'w', 'd', 'd', 'd',   'd', 'w', 'g', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'g', 'g', 'w'},
         {'w', 'g', 'd', 'd',   'd', 'g', 'g', 'd',   'd', 'g', 'g', 'g',   'g', 'g', 'd', 'd', 'w', 'w', 'd', 'd', 'd',   'd', 'g', 'g', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd', 'w', 'w', 'w', 'd', 'd',   'd', 'g', 'g', 'd',   'd', 'd', 'g', 'g',   'g', 'w', 'w', 'g', 'w', 'w', 'd', 'd', 'd',   'd', 'g', 'g', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'w', 'g', 'w'},
@@ -163,7 +163,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         {'w', 'g', 'd', 'g',   'w', 'w', 'g', 'd',   'g', 'g', 'g', 'd',   'g', 'g', 'g', 'd', 'w', 'w', 'd', 'd', 'd',   'w', 'w', 'g', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'w', 'g', 'w', 'w', 'g', 'd', 'g',   'w', 'w', 'g', 'd',   'g', 'g', 'g', 'g',   'g', 'w', 'w', 'g', 'w', 'w', 'd', 'd', 'd',   'w', 'w', 'g', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'w', 'g', 'w'},
         {'w', 'g', 'd', 'g',   'w', 'w', 'g', 'd',   'd', 'd', 'g', 'd',   'd', 'd', 'd', 'd', 'w', 'w', 'd', 'd', 'd',   'w', 'w', 'g', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'w', 'g', 'w', 'w', 'g', 'd', 'g',   'w', 'w', 'g', 'd',   'd', 'd', 'g', 'g',   'g', 'w', 'w', 'g', 'w', 'w', 'd', 'd', 'd',   'w', 'w', 'g', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'w', 'g', 'w'},
         {'w', 'g', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd', 'w', 'w', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'g', 'g', 'w', 'w', 'g', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'g',   'g', 'g', 'g', 'g', 'w', 'w', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'g', 'g', 'w'},
-        {'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'd', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w', 'W', 'W', 'W', 'W',   'w', 'w', 'w', 'w',   'd', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w'},
+        {'d', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd', 'w', 'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd', 'd', 'd', 'd', 'd', 'd',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w'},
     };
 
     tile_chunk TileChunk;
@@ -183,8 +183,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
     World.TileChunks = &TileChunk;
 
-    float LowerLeftX = -(float)World.TileSideInMeters*30.0f;
-    float LowerLeftY = (float)GraphicsBuffer->Height;
+    float LowerLeftX = -35.0f;
+    float LowerLeftY = (float)GraphicsBuffer->Height - 50.0f;
 
     float PlayerWidth = 0.25f * World.TileSideInMeters;
     float PlayerHeight = 0.25f * World.TileSideInMeters;
@@ -231,7 +231,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         {
             dPlayer.X -= 10.0f;
         }
-        dPlayer = (dPlayer * 10.0f) * Input->DeltaTime;
+        dPlayer = (dPlayer * 5.0f) * Input->DeltaTime;
 
         if (dPlayer.X == 0 && dPlayer.Y == 0)
         {
@@ -242,18 +242,17 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         NewPlayerP.TileRelY += dPlayer.Y;
         NewPlayerP = RecanonicalizePosition(&World, NewPlayerP);
 
-        float PlayerCollisionWidth = PlayerWidth * 0.25f;
+        world_position PlayerBottomRight = NewPlayerP;
+        PlayerBottomRight.TileRelX += PlayerWidth;
+        PlayerBottomRight.TileRelY -= PlayerHeight;
+        PlayerBottomRight = RecanonicalizePosition(&World, PlayerBottomRight);
 
-        world_position PlayerRight = NewPlayerP;
-        PlayerRight.TileRelX += PlayerCollisionWidth;
-        RecanonicalizePosition(&World, PlayerRight);
+        world_position PlayerBootmLeft = NewPlayerP;
+        PlayerBootmLeft.TileRelY -= PlayerHeight;
+        PlayerBootmLeft = RecanonicalizePosition(&World, PlayerBootmLeft);
 
-        world_position PlayerLeft = NewPlayerP;
-        PlayerLeft.TileRelX -= PlayerCollisionWidth;
-        RecanonicalizePosition(&World, PlayerLeft);
-
-        if (IsWorldPointEmpty(&World, PlayerRight) &&
-            IsWorldPointEmpty(&World, PlayerLeft))
+        if (IsWorldPointEmpty(&World, PlayerBottomRight) &&
+            IsWorldPointEmpty(&World, PlayerBootmLeft))
         {
             GameState->PlayerP = NewPlayerP;
         }
@@ -261,12 +260,14 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
     DrawRectangle(GraphicsBuffer, vec2(0.0f), vec2(1000.0f), color(0.0f, 0.0f, 0.0f));
 
-    for (uint32 Row = 0; Row < TILEMAP_COUNT_Y; ++Row)
+    for (uint32 Row = 0; Row < 9; ++Row)
     {
-        for (uint32 Column = 0; Column < TILEMAP_COUNT_X; ++Column)
+        for (uint32 Column = 0; Column < 17; ++Column)
         {
             color TileColor;
-            switch (GetTileValue(&World, &TileChunk, Column, Row))
+            uint32 AbsColumn = GameState->PlayerP.AbsTileX + Column;
+            uint32 AbsRow = GameState->PlayerP.AbsTileY + Row;
+            switch (GetTileValue(&World, &TileChunk, AbsColumn, AbsRow))
             {
             case 'd':
             {
@@ -285,7 +286,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
             } break;
             }
 
-            if ((Column == GameState->PlayerP.TileRelX) && (Row == GameState->PlayerP.TileRelY))
+            if ((Column == GameState->PlayerP.AbsTileX) && (Row == GameState->PlayerP.AbsTileY))
             {
                 TileColor = color(1.0f, 0.0f, 0.0f);
             }
@@ -301,14 +302,14 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     }
 
     color PlayerColor(1.0f, 0.5f, 0.5f);
-    float Left = LowerLeftX + World.MetersToPixels*World.TileSideInMeters*GameState->PlayerP.TileRelX +
-        World.MetersToPixels*GameState->PlayerP.TileRelX - World.MetersToPixels*(0.25f*PlayerWidth);
+    float Left = LowerLeftX + (GameState->PlayerP.AbsTileX*World.TileSideInPixels) +
+        World.MetersToPixels*GameState->PlayerP.TileRelX;
 
-    float Top = LowerLeftY - World.MetersToPixels*World.TileSideInMeters*GameState->PlayerP.TileRelY -
-        World.MetersToPixels*GameState->PlayerP.TileRelY - World.MetersToPixels*PlayerHeight;
+    float Bottom = LowerLeftY - (GameState->PlayerP.AbsTileY * World.TileSideInPixels) -
+        World.MetersToPixels*GameState->PlayerP.TileRelY;
     
-    DrawRectangle(GraphicsBuffer, vec2(Left, Top),
-        vec2(Left + World.MetersToPixels*PlayerWidth, Top + World.MetersToPixels*PlayerHeight),
+    DrawRectangle(GraphicsBuffer, vec2(Left, Bottom),
+        vec2(Left + World.MetersToPixels*PlayerWidth, Bottom + World.MetersToPixels*PlayerHeight),
         PlayerColor);
 }
 /****************************************************************************/
