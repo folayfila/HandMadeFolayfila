@@ -1,13 +1,15 @@
 // (C) Copyright 2026 by Abdallah Maaliki / folayfila.
 
+#include "folayfila_types.h"
 #include "folayfila.h"
 #include "folayfila_intrinsics.h"
+#include "folayfila_tile.cpp"
 
-internal void GameOutputSound(game_state* GameState, game_output_sound_buffer* SoundBuffer)
+static void GameOutputSound(game_state* GameState, game_output_sound_buffer* SoundBuffer)
 {
     int16 ToneVolume = 3000;
     int16 ToneHz = 256;
-    local_presist float tSine = 0.0f;
+    static float tSine = 0.0f;
     int WavePeriod = SoundBuffer->SamplesPerSecond / ToneHz;
 
     int16* SampleOut = SoundBuffer->Samples;
@@ -26,7 +28,7 @@ internal void GameOutputSound(game_state* GameState, game_output_sound_buffer* S
     }
 }
 
-internal void DrawRectangle(game_graphics_buffer* Buffer, vec2 Min, vec2 Max, color Color)
+static void DrawRectangle(game_graphics_buffer* Buffer, vec2 Min, vec2 Max, color Color)
 {
     uint8* EndOfBuffer = (uint8*)Buffer->Memory + Buffer->Pitch * Buffer->Height;
 
@@ -53,83 +55,22 @@ internal void DrawRectangle(game_graphics_buffer* Buffer, vec2 Min, vec2 Max, co
     }
 }
 
-inline tile_chunk* GetTileChunk(world* World, int32 TileChunkX, int32 TileChunkY)
+static void InitialzeArena(memory_arena* Arena, size_t ArenaSize, uint8* Storage)
 {
-    tile_chunk* TileChunk = 0;
-
-    if ((TileChunkX >= 0) && (TileChunkX < World->TileChunkCountX) &&
-        (TileChunkY >= 0) && (TileChunkY < World->TileChunkCountY))
-    {
-        TileChunk = &World->TileChunks[TileChunkY * World->TileChunkCountX + TileChunkX];
-    }
-    return TileChunk;
+    Arena->Size = ArenaSize;
+    Arena->Base = Storage;
+    Arena->Used = 0;
 }
 
-inline uint32 GetTileValueUnchecked(world* World, tile_chunk* TileChunk, uint32 TileX, uint32 TileY)
+#define PushSize(Arena, type) (type *)PushSize_(Arena, sizeof(type))
+#define PushArray(Arena, Count, type) (type *)PushSize_(Arena, (Count)*sizeof(type))
+void* PushSize_(memory_arena* Arena, size_t Size)
 {
-    Assert(TileChunk);
-    Assert(TileX < World->ChunkDim);
-    Assert(TileY < World->ChunkDim);
-
-    uint32 TileChunkValue = TileChunk->Tiles[TileY * World->ChunkDim + TileX];
-    return TileChunkValue;
-}
-
-inline uint32 GetTileValue(world *World, tile_chunk *TileChunk, uint32 TestTileX, uint32 TestTileY)
-{
-    uint32 TileChunkValue = 0;
-    if (TileChunk)
-    {
-        TileChunkValue = GetTileValueUnchecked(World, TileChunk, TestTileX, TestTileY);
-    }
-    return TileChunkValue;
-}
-
-inline void CannonicalizeCoord(world* World, uint32 *Tile, float *TileRel)
-{
-    int32 Offset = FloorFloatToInt32(*TileRel / World->TileSideInMeters);
-    *Tile += Offset;
-    *TileRel -= Offset * World->TileSideInMeters;
-
-    Assert(*TileRel >= 0);
-    Assert(*TileRel <= World->TileSideInMeters);
-}
-
-inline world_position RecanonicalizePosition(world* World, world_position Pos)
-{
-    world_position Result = Pos;
-
-    CannonicalizeCoord(World, &Result.AbsTileX, &Result.TileRelX);
-    CannonicalizeCoord(World, &Result.AbsTileY, &Result.TileRelY);
+    Assert((Arena->Used + Size) <= Arena->Size);
+    void* Result = Arena->Base + Arena->Used;
+    Arena->Used += Size;
 
     return Result;
-}
-
-inline tile_chunk_position GetChunckPositionFor(world *World, uint32 AbsTileX, uint32 AbsTileY)
-{
-    tile_chunk_position Result;
-
-    Result.TilChunkX = AbsTileX >> World->ChunkShift;
-    Result.TilChunkY = AbsTileY >> World->ChunkShift;
-    Result.RelTileX = AbsTileX & World->ChunkMask;
-    Result.RelTileY = AbsTileY & World->ChunkMask;
-
-    return Result;
-}
-
-internal uint32 GetTileValue(world* World, uint32 AbsTileX, uint32 AbsTileY)
-{
-    tile_chunk_position ChunkPos = GetChunckPositionFor(World, AbsTileX, AbsTileY);
-    tile_chunk* TileChunk = GetTileChunk(World, ChunkPos.TilChunkX, ChunkPos.TilChunkY);
-    uint32 TileChunkValue = GetTileValue(World, TileChunk, ChunkPos.RelTileX, ChunkPos.RelTileY);
-    return TileChunkValue;
-}
-
-internal bool32 IsWorldPointEmpty(world* World, world_position CanPos)
-{
-    uint32 TileChunkValue = GetTileValue(World, CanPos.AbsTileX, CanPos.AbsTileY);
-    bool32 Empty = (TileChunkValue == 'd');
-    return Empty;
 }
 
 extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
@@ -143,59 +84,69 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     if (!GameMemory->IsInitialized)
     {
         GameState->PlayerP.AbsTileX = 2;
-        GameState->PlayerP.AbsTileY = 4;
+        GameState->PlayerP.AbsTileY = 5;
         GameState->PlayerP.TileRelX = 0.5f;
         GameState->PlayerP.TileRelY = 0.5f;
+
+        InitialzeArena(&GameState->WorldArena, (size_t)(GameMemory->PermanentStorageSize - sizeof(game_state)), 
+            (uint8 *)GameMemory->PermanentStorage + sizeof(game_state));
+
+        GameState->World = (world*)PushSize(&GameState->WorldArena, world);
+        world* World = GameState->World;
+
+        World->TileMap = (tile_map*)PushSize(&GameState->WorldArena, tile_map);
+        tile_map* TileMap = World->TileMap;
+
+        TileMap->ChunkShift = 8;
+        TileMap->ChunkMask = (1 << TileMap->ChunkShift) - 1; // 256x256
+        TileMap->ChunkDim = 256;
+
+        TileMap->TileSideInMeters = 1.0f;
+        TileMap->TileSideInPixels = 60;
+        TileMap->MetersToPixels = (float)TileMap->TileSideInPixels / TileMap->TileSideInMeters;
+
+        TileMap->TileChunkCountX = 4;
+        TileMap->TileChunkCountY = 4;
+
+        TileMap->TileChunks = PushArray(&GameState->WorldArena, 
+            TileMap->TileChunkCountX*TileMap->TileChunkCountY, tile_chunk);
+
+        for (uint32 Y = 0; Y < TileMap->TileChunkCountY; ++Y)
+        {
+            for (uint32 X = 0; X < TileMap->TileChunkCountX; ++X)
+            {
+                TileMap->TileChunks[Y * TileMap->TileChunkCountX + X].Tiles =
+                    PushArray(&GameState->WorldArena, TileMap->ChunkDim * TileMap->ChunkDim, uint32);
+            }
+        }
+
+        uint32 TilesPerWidth = 17;
+        uint32 TilesPerHeight = 9;
+        for (uint32 ScreenY = 0; ScreenY < 32; ++ScreenY)
+        {
+            for (uint32 ScreenX = 0; ScreenX < 32; ++ScreenX)
+            {
+                for (uint32 TileY = 0; TileY < TilesPerHeight; ++TileY)
+                {
+                    for (uint32 TileX = 0; TileX < TilesPerWidth; ++TileX)
+                    {
+                        uint32 AbsTileX = ScreenX * TilesPerWidth + TileX;
+                        uint32 AbsTileY = ScreenY * TilesPerHeight + TileY;
+
+                        SetTileValue(TileMap, AbsTileX, AbsTileY,
+                            (TileX == TileY) && (TileY % 2) ? 'g' : 'd');
+                    }
+
+                }
+            }
+        }
 
         GameMemory->IsInitialized = true;
     }
 
-#define TILEMAP_COUNT_X (256)
-#define TILEMAP_COUNT_Y (256)
-
-    uint32 Tiles[TILEMAP_COUNT_X][TILEMAP_COUNT_Y] =
-    {
-        {'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w'},
-
-        {'w', 'g', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'g', 'g',   'd', 'd', 'd', 'd', 'w', 'w', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'g', 'g', 'w', 'w', 'g', 'd', 'd',   'd', 'd', 'd', 'g',   'd', 'd', 'g', 'g',   'g', 'g', 'g', 'g', 'w', 'w', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'w', 'w', 'w'},
-        {'w', 'g', 'd', 'd',   'd', 'w', 'g', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd', 'w', 'w', 'd', 'd', 'd',   'd', 'w', 'g', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'g', 'g', 'w', 'w', 'w', 'd', 'd',   'd', 'w', 'g', 'd',   'd', 'd', 'd', 'g',   'g', 'g', 'g', 'g', 'w', 'w', 'd', 'd', 'd',   'd', 'w', 'g', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'w', 'w', 'w'},
-        {'w', 'g', 'd', 'd',   'd', 'g', 'g', 'd',   'd', 'g', 'g', 'g',   'g', 'g', 'd', 'd', 'w', 'w', 'd', 'd', 'd',   'd', 'g', 'g', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd', 'w', 'w', 'w', 'd', 'd',   'd', 'g', 'g', 'd',   'd', 'd', 'g', 'g',   'g', 'w', 'w', 'g', 'w', 'w', 'd', 'd', 'd',   'd', 'g', 'g', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'w', 'w', 'w'},
-        {'w', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd', 'd', 'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd', 'd', 'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd', 'd', 'd', 'd', 'd', 'd',   'g', 'g', 'g', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'w', 'w', 'w'},
-        {'w', 'g', 'd', 'g',   'w', 'w', 'g', 'd',   'g', 'g', 'g', 'd',   'g', 'g', 'g', 'd', 'w', 'w', 'd', 'd', 'd',   'w', 'w', 'g', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'w', 'g', 'w', 'w', 'g', 'd', 'g',   'w', 'w', 'g', 'd',   'g', 'g', 'g', 'g',   'g', 'w', 'w', 'g', 'w', 'w', 'd', 'd', 'd',   'w', 'w', 'g', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'w', 'w', 'w'},
-        {'w', 'g', 'd', 'g',   'w', 'w', 'g', 'd',   'd', 'd', 'g', 'd',   'd', 'd', 'd', 'd', 'w', 'w', 'd', 'd', 'd',   'w', 'w', 'g', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'w', 'g', 'w', 'w', 'g', 'd', 'g',   'w', 'w', 'g', 'd',   'd', 'd', 'g', 'g',   'g', 'w', 'w', 'g', 'w', 'w', 'd', 'd', 'd',   'w', 'w', 'g', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'w', 'w', 'w'},
-        {'w', 'g', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd', 'w', 'w', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'g', 'g', 'w', 'w', 'g', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'g',   'g', 'g', 'g', 'g', 'w', 'w', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'd', 'd', 'd', 'd',   'w', 'w', 'w', 'w', 'w'},
-
-        {'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w'},
-        {'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w'},
-        {'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w'},
-        {'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w'},
-        {'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w'},
-        {'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w'},
-        {'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w',   'w', 'w', 'w', 'w', 'w'}
-    };
-
-    tile_chunk TileChunk;
-    TileChunk.Tiles = (uint32*)Tiles;
-
-    world World;
-    World.ChunkShift = 8;
-    World.ChunkMask = (1 << World.ChunkShift) - 1; // 256x256
-    World.ChunkDim = 256;
-
-    World.TileSideInMeters = 1.4f;
-    World.TileSideInPixels = 60;
-    World.MetersToPixels = (float)World.TileSideInPixels/World.TileSideInMeters;
-
-    World.TileChunkCountX = 1;
-    World.TileChunkCountY = 1;
-
-    World.TileChunks = &TileChunk;
-
-    float CenterX = 0.5f * (float)GraphicsBuffer->Width;
-    float CenterY = 0.5f * (float)GraphicsBuffer->Height;
-
-    float PlayerWidth = 0.25f * World.TileSideInMeters;
-    float PlayerHeight = 0.25f * World.TileSideInMeters;
+    tile_map* TileMap = GameState->World->TileMap;
+    float PlayerWidth = 0.25f * TileMap->TileSideInMeters;
+    float PlayerHeight = 0.25f * TileMap->TileSideInMeters;
 
     for (int ControllerIndex = 0; ControllerIndex < ArrayCount(Input->Controllers); ++ControllerIndex)
     {
@@ -245,20 +196,20 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         {
             continue;
         }
-        world_position NewPlayerP = GameState->PlayerP;
+        tile_map_position NewPlayerP = GameState->PlayerP;
         NewPlayerP.TileRelX += dPlayer.X;
         NewPlayerP.TileRelY += dPlayer.Y;
-        NewPlayerP = RecanonicalizePosition(&World, NewPlayerP);
+        NewPlayerP = RecanonicalizePosition(TileMap, NewPlayerP);
 
-        world_position PlayerBottomRight = NewPlayerP;
+        tile_map_position PlayerBottomRight = NewPlayerP;
         PlayerBottomRight.TileRelX += PlayerWidth;
-        PlayerBottomRight = RecanonicalizePosition(&World, PlayerBottomRight);
+        PlayerBottomRight = RecanonicalizePosition(TileMap, PlayerBottomRight);
 
-        world_position PlayerBootmLeft = NewPlayerP;
-        PlayerBootmLeft = RecanonicalizePosition(&World, PlayerBootmLeft);
+        tile_map_position PlayerBootmLeft = NewPlayerP;
+        PlayerBootmLeft = RecanonicalizePosition(TileMap, PlayerBootmLeft);
 
-        if (IsWorldPointEmpty(&World, PlayerBottomRight) &&
-            IsWorldPointEmpty(&World, PlayerBootmLeft))
+        if (IsTileMapPointEmpty(TileMap, PlayerBottomRight) &&
+            IsTileMapPointEmpty(TileMap, PlayerBootmLeft))
         {
             GameState->PlayerP = NewPlayerP;
         }
@@ -266,14 +217,17 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
     DrawRectangle(GraphicsBuffer, vec2(0.0f), vec2(1000.0f), color(0.0f, 0.0f, 0.0f));
 
+    float ScreenCenterX = 0.5f * (float)GraphicsBuffer->Width;
+    float ScreenCenterY = 0.5f * (float)GraphicsBuffer->Height;
+
     for (int32 RelRow = -10; RelRow < 10; ++RelRow)
     {
         for (int32 RelColumn = -20; RelColumn < 20; ++RelColumn)
         {
             color TileColor;
-            uint32 Column = (uint32)Clamp32(GameState->PlayerP.AbsTileX + RelColumn, 0, World.ChunkDim-1);
-            uint32 Row = (uint32)Clamp32(GameState->PlayerP.AbsTileY + RelRow, 0, World.ChunkDim-1);
-            switch (GetTileValue(&World, &TileChunk, Column, Row))
+            uint32 Column = (uint32)Clamp32(GameState->PlayerP.AbsTileX + RelColumn, 0, TileMap->ChunkDim-1);
+            uint32 Row = (uint32)Clamp32(GameState->PlayerP.AbsTileY + RelRow, 0, TileMap->ChunkDim-1);
+            switch (GetTileValue(TileMap, Column, Row))
             {
             case 'd':
             {
@@ -296,35 +250,40 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
             }break;
             }
 
-            float PlayerOffsetX = World.MetersToPixels * GameState->PlayerP.TileRelX;
-            float PlayerOffsetY = World.MetersToPixels * GameState->PlayerP.TileRelY;
+            if (Column == GameState->PlayerP.AbsTileX && Row == GameState->PlayerP.AbsTileY)
+            {
+                TileColor = color(1.0f, 0.0f, 0.0f);
+            }
+
+            float PlayerOffsetX = TileMap->MetersToPixels * GameState->PlayerP.TileRelX;
+            float PlayerOffsetY = TileMap->MetersToPixels * GameState->PlayerP.TileRelY;
 
             vec2 Min, Max;
-            Min.X = CenterX + (float)RelColumn * World.TileSideInPixels - PlayerOffsetX;
-            Min.Y = CenterY - (float)RelRow * World.TileSideInPixels + PlayerOffsetY - World.TileSideInPixels;
+            Min.X = ScreenCenterX + (float)RelColumn * TileMap->TileSideInPixels - PlayerOffsetX;
+            Min.Y = ScreenCenterY - (float)RelRow * TileMap->TileSideInPixels + PlayerOffsetY - TileMap->TileSideInPixels;
 
-            Max.X = Min.X + World.TileSideInPixels;
-            Max.Y = CenterY - (float)RelRow * World.TileSideInPixels + PlayerOffsetY;
+            Max.X = Min.X + TileMap->TileSideInPixels;
+            Max.Y = ScreenCenterY - (float)RelRow * TileMap->TileSideInPixels + PlayerOffsetY;
 
             DrawRectangle(GraphicsBuffer, Min, Max, TileColor);
         }
     }
 
     color PlayerColor(1.0f, 0.5f, 0.5f);
-    float Left = CenterX;
-    float Bottom = CenterY - World.MetersToPixels*PlayerHeight;
+    float Left = ScreenCenterX;
+    float Bottom = ScreenCenterY - TileMap->MetersToPixels*PlayerHeight;
     
     DrawRectangle(GraphicsBuffer, vec2(Left, Bottom),
-        vec2(Left + World.MetersToPixels*PlayerWidth, Bottom + World.MetersToPixels*PlayerHeight),
+        vec2(Left + TileMap->MetersToPixels*PlayerWidth, Bottom + TileMap->MetersToPixels*PlayerHeight),
         PlayerColor);
 }
 /****************************************************************************/
 // Old code
 /*
-internal void DisplayAwesomeGradient(game_graphics_buffer* Buffer, float XOffset, float YOffset)
+static void DisplayAwesomeGradient(game_graphics_buffer* Buffer, float XOffset, float YOffset)
 {
-    local_presist uint8 Red = 0;
-    local_presist bool32 MaxRed = false;
+    static uint8 Red = 0;
+    static bool32 MaxRed = false;
     if (!MaxRed)
     {
         ++Red;

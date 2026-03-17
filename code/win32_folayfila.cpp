@@ -7,13 +7,13 @@
 #include <stdio.h>
 
 /******************* Global Variables *****************************/
-global_variable win32_offscreen_buffer GlobalBackBuffer;
-global_variable LPDIRECTSOUNDBUFFER GlobalSecondaryBuffer;
-global_variable int64 GlobalPerfCountFrequency;
+static win32_offscreen_buffer GlobalBackBuffer;
+static LPDIRECTSOUNDBUFFER GlobalSecondaryBuffer;
+static int64 GlobalPerfCountFrequency;
 /******************************************************************/
 
 /******************* Game Code *****************************/
-internal FILETIME Win32GetLastWriteTime(char* FileName)
+static FILETIME Win32GetLastWriteTime(char* FileName)
 {
     FILETIME LastWriteTime = {};
 
@@ -25,7 +25,7 @@ internal FILETIME Win32GetLastWriteTime(char* FileName)
     return LastWriteTime;
 }
 
-internal win32_game_code Win32LoadGameCode(char* SourceDLLName, char* TempDLLName)
+static win32_game_code Win32LoadGameCode(char* SourceDLLName, char* TempDLLName)
 {
     win32_game_code Result = {};
     
@@ -47,7 +47,7 @@ internal win32_game_code Win32LoadGameCode(char* SourceDLLName, char* TempDLLNam
     return Result;
 }
 
-internal void Win32UnloadGameCode(win32_game_code* GameCode)
+static void Win32UnloadGameCode(win32_game_code* GameCode)
 {
     if(GameCode->GameCodeDLL)
     {
@@ -117,7 +117,7 @@ DEBUG_PLATFORM_WRITE_ENTIRE_FILE(DEBUGPlatformWriteEntireFile)
     return Result;
 }
 
-internal void Win32GetEXEFileName(win32_state* State)
+static void Win32GetEXEFileName(win32_state* State)
 {
     DWORD SizeOfFilename = GetModuleFileNameA(0, State->EXEFileName, sizeof(State->EXEFileName));
     State->OnePastLastEXEFileNameSlash = State->EXEFileName;
@@ -130,7 +130,7 @@ internal void Win32GetEXEFileName(win32_state* State)
     }
 }
 
-internal void Win32BuildEXEPathFileName(win32_state* State, char* FileName, int DestCount, char* Dest)
+static void Win32BuildEXEPathFileName(win32_state* State, char* FileName, int DestCount, char* Dest)
 {
     CatStrings(State->OnePastLastEXEFileNameSlash - State->EXEFileName,
         State->EXEFileName, StringLength(FileName), FileName,
@@ -139,7 +139,7 @@ internal void Win32BuildEXEPathFileName(win32_state* State, char* FileName, int 
 /******************************************************************/
 
 /******************* Display Window *****************************/
-internal win32_window_deminsion Win32GetWindowDeminsion(HWND Window)
+static win32_window_deminsion Win32GetWindowDeminsion(HWND Window)
 {
     win32_window_deminsion Result;
 
@@ -152,7 +152,7 @@ internal win32_window_deminsion Win32GetWindowDeminsion(HWND Window)
 }
 
 // We create a buffer for our content that we want to display, then we pass it to windows to paint it when we want.
-internal void Win32ResizeDIBSection(win32_offscreen_buffer* Buffer, int Width, int Height)    // DIB: Devise Independent Bitmap
+static void Win32ResizeDIBSection(win32_offscreen_buffer* Buffer, int Width, int Height)    // DIB: Devise Independent Bitmap
 {
     if (Buffer->Memory)
     {
@@ -177,7 +177,7 @@ internal void Win32ResizeDIBSection(win32_offscreen_buffer* Buffer, int Width, i
     Buffer->Pitch = Width * Buffer->BytesPerPixel;
 }
 
-internal void Win32DisplayBufferInWindow(win32_offscreen_buffer* Buffer,
+static void Win32DisplayBufferInWindow(win32_offscreen_buffer* Buffer,
     HDC DeviceContext, int WindowWidth, int WindowHeight)
 {
     int OffsetX = 10;
@@ -192,7 +192,7 @@ internal void Win32DisplayBufferInWindow(win32_offscreen_buffer* Buffer,
         DIB_RGB_COLORS, SRCCOPY);
 }
 
-internal LRESULT CALLBACK Win32MainWindowCallback(HWND Window, UINT Message, WPARAM WParam, LPARAM LParam)
+static LRESULT CALLBACK Win32MainWindowCallback(HWND Window, UINT Message, WPARAM WParam, LPARAM LParam)
 {
     LRESULT Result = 0;
 
@@ -247,7 +247,7 @@ typedef DIRECT_SOUND_CREATE(direct_sound_create);
 
 /**************************** Sound *******************************/
 
-internal void Win32InitDSound(HWND Window, int32 SamplesPerSeconds, int32 BufferSize)
+static void Win32InitDSound(HWND Window, int32 SamplesPerSeconds, int32 BufferSize)
 {
     // Load the DSound library.
     HMODULE DSoundLibrary = LoadLibraryA("dsound.dll");
@@ -301,7 +301,7 @@ internal void Win32InitDSound(HWND Window, int32 SamplesPerSeconds, int32 Buffer
     }
 }
 
-internal void Win32ClearSoundBuffer(win32_sound_output* SoundOutput)
+static void Win32ClearSoundBuffer(win32_sound_output* SoundOutput)
 {
     VOID* Region1;
     DWORD Region1Size;
@@ -328,7 +328,7 @@ internal void Win32ClearSoundBuffer(win32_sound_output* SoundOutput)
     }
 }
 
-internal void Win32FillSoundBuffer(win32_sound_output* SoundOutput, DWORD ByteToLock, DWORD BytesToWrite,
+static void Win32FillSoundBuffer(win32_sound_output* SoundOutput, DWORD ByteToLock, DWORD BytesToWrite,
     game_output_sound_buffer* SourceBuffer)
 {
     VOID* Region1;
@@ -362,7 +362,7 @@ internal void Win32FillSoundBuffer(win32_sound_output* SoundOutput, DWORD ByteTo
     }
 }
 
-internal void Win32DebugDrawVertical(win32_offscreen_buffer* BackBuffer, int X, int Top, int Bottom, uint32 Color)
+static void Win32DebugDrawVertical(win32_offscreen_buffer* BackBuffer, int X, int Top, int Bottom, uint32 Color)
 {
     uint8* Pixel = ((uint8*)BackBuffer->Memory + X*BackBuffer->BytesPerPixel + Top*BackBuffer->Pitch);
     for (int Y = 0; Y < Bottom; ++Y)
@@ -384,7 +384,7 @@ inline void Win32DrawSoundBufferMarker(win32_offscreen_buffer* BackBuffer,
     Win32DebugDrawVertical(BackBuffer, X, Top, Bottom, Color);
 }
 
-internal void Win32DebugSyncDisplay(win32_offscreen_buffer *BackBuffer, int MarkersCount,
+static void Win32DebugSyncDisplay(win32_offscreen_buffer *BackBuffer, int MarkersCount,
     win32_debug_time_marker* Markers,
     win32_sound_output *SoundOutput, float TargetSecondsPerFrame)
 {
@@ -407,13 +407,13 @@ internal void Win32DebugSyncDisplay(win32_offscreen_buffer *BackBuffer, int Mark
 
 /*********************** Input Recording **************************/
 
-internal void Win32GetInputFileLocation(win32_state* State, int SlotIndex, int DestCount, char* Dest)
+static void Win32GetInputFileLocation(win32_state* State, int SlotIndex, int DestCount, char* Dest)
 {
     Assert(SlotIndex == 1);
     Win32BuildEXEPathFileName(State, "input.recording", DestCount, Dest);
 }
 
-internal void Win32BeginRecordingInput(win32_state* State, int InputRecordingIndex)
+static void Win32BeginRecordingInput(win32_state* State, int InputRecordingIndex)
 {
     State->InputRecordingIndex = InputRecordingIndex;
 
@@ -426,19 +426,19 @@ internal void Win32BeginRecordingInput(win32_state* State, int InputRecordingInd
     WriteFile(State->RecordingHandle, State->GameMemoryBlock, BytesToWrite, &BytesToWrite, 0);
 }
 
-internal void Win32EndRecordingInput(win32_state* State)
+static void Win32EndRecordingInput(win32_state* State)
 {
     CloseHandle(State->RecordingHandle);
     State->InputRecordingIndex = 0;
 }
 
-internal void Win32RecordInput(win32_state* State, game_input* Input)
+static void Win32RecordInput(win32_state* State, game_input* Input)
 {
     DWORD BytesWritten;
     WriteFile(State->RecordingHandle, Input, sizeof(*Input), &BytesWritten, 0);
 }
 
-internal void Win32BeginInputPlayback(win32_state* State, int InputPlayingIndex)
+static void Win32BeginInputPlayback(win32_state* State, int InputPlayingIndex)
 {
     State->InputPlayingIndex = InputPlayingIndex;
 
@@ -451,13 +451,13 @@ internal void Win32BeginInputPlayback(win32_state* State, int InputPlayingIndex)
     ReadFile(State->PlaybackHandle, State->GameMemoryBlock, BytesToRead, &BytesToRead, 0);
 }
 
-internal void Win32EndInputPlayback(win32_state* State)
+static void Win32EndInputPlayback(win32_state* State)
 {
     CloseHandle(State->PlaybackHandle);
     State->InputPlayingIndex = 0;
 }
 
-internal void Win32PlaybackInput(win32_state* State, game_input* Input)
+static void Win32PlaybackInput(win32_state* State, game_input* Input)
 {
     DWORD BytesRead = 0;
     if (ReadFile(State->PlaybackHandle, Input, sizeof(*Input), &BytesRead, 0))
@@ -479,7 +479,7 @@ X_INPUT_GET_STATE(XInputGetStateStub)
 {
     return ERROR_DEVICE_NOT_CONNECTED;
 }
-global_variable x_input_get_state* XInputGetState_ = XInputGetStateStub;
+static x_input_get_state* XInputGetState_ = XInputGetStateStub;
 #define XInputGetState XInputGetState_
 
 #define X_INPUT_SET_STATE(name) DWORD WINAPI name(DWORD dwUserIndex, XINPUT_VIBRATION *pVibration)
@@ -488,10 +488,10 @@ X_INPUT_SET_STATE(XInputSetStateStub)
 {
     return ERROR_DEVICE_NOT_CONNECTED;
 }
-global_variable x_input_set_state* XInputSetState_ = XInputSetStateStub;
+static x_input_set_state* XInputSetState_ = XInputSetStateStub;
 #define XInputSetState XInputSetState_
 
-internal void Win32LoadXInput()
+static void Win32LoadXInput()
 {
     HMODULE XInputLibrary = LoadLibraryA("xinput1_4.dll");
     if (!XInputLibrary)
@@ -508,13 +508,13 @@ internal void Win32LoadXInput()
     }
 }
 
-internal void Win32ProcessKeyboardMessage(game_button_state* NewState, bool32 IsDown)
+static void Win32ProcessKeyboardMessage(game_button_state* NewState, bool32 IsDown)
 {
     NewState->EndedDown = IsDown;
     ++NewState->HalfTransitionCount;
 }
 
-internal void Win32HandleKeyboardInput(win32_state* State, WPARAM WParam, LPARAM LParam, game_controller_input* KeyboardController)
+static void Win32HandleKeyboardInput(win32_state* State, WPARAM WParam, LPARAM LParam, game_controller_input* KeyboardController)
 {
     uint32 VKCode = (uint32)WParam;
     bool WasDown = ((LParam & (1 << 30)) != 0);
@@ -594,7 +594,7 @@ internal void Win32HandleKeyboardInput(win32_state* State, WPARAM WParam, LPARAM
     }
 }
 
-internal void Win32HandleWindowsMessageLoop(win32_state* State, game_controller_input* KeyboardController)
+static void Win32HandleWindowsMessageLoop(win32_state* State, game_controller_input* KeyboardController)
 {
     MSG Message;
     while (PeekMessage(&Message, 0, 0, 0, PM_REMOVE))
@@ -622,7 +622,7 @@ internal void Win32HandleWindowsMessageLoop(win32_state* State, game_controller_
     }
 }
 
-internal void Win32ProcessXinputDigitalButton(DWORD XInputButtonState,
+static void Win32ProcessXinputDigitalButton(DWORD XInputButtonState,
                                               game_button_state* OldState, DWORD ButtonBit,
                                               game_button_state* NewState)
 {
@@ -630,7 +630,7 @@ internal void Win32ProcessXinputDigitalButton(DWORD XInputButtonState,
     NewState->HalfTransitionCount = (OldState->EndedDown != NewState->EndedDown) ? 1 : 0;
 }
 
-internal float Win32ProcessXInputStickValue(SHORT Value, SHORT DeadZoneThreshold)
+static float Win32ProcessXInputStickValue(SHORT Value, SHORT DeadZoneThreshold)
 {
     float Result = 0;
     if (Value > DeadZoneThreshold)
@@ -644,7 +644,7 @@ internal float Win32ProcessXInputStickValue(SHORT Value, SHORT DeadZoneThreshold
     return Result;
 }
 
-internal void Win32HandleControllerInput(HWND Window, game_input* OldInput, game_input* NewInput)
+static void Win32HandleControllerInput(HWND Window, game_input* OldInput, game_input* NewInput)
 {
     DWORD MaxControllerCount = XUSER_MAX_COUNT;
     if (MaxControllerCount > (ArrayCount(NewInput->Controllers) - 1))

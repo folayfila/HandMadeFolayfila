@@ -3,51 +3,8 @@
 #if !defined(FOLAYFILA_H)
 #define FOLAYFILA_H
 
-#include <stdint.h>
-
-/************** typedef ***************/
-typedef int8_t int8;
-typedef int16_t int16;
-typedef int32_t int32;
-typedef int64_t int64;
-
-typedef uint8_t uint8;
-typedef uint16_t uint16;
-typedef uint32_t uint32;
-typedef uint64_t uint64;
-
-typedef int32 bool32;
-/**************************************/
-
-/************** #define ***************/
-#define internal static
-#define local_presist static
-#define global_variable static
-
-/*
-* Build Options:
-** FOLAYFILA_INTERNAL
-*   0 - Build for public release.
-*   1 - Build for developer only.
-
-* ** FOLAYFILA_SLOW
-*   0 - No slow code allowed.
-*   1 - Slow code welcome.
-*/
-
-#if FOLAYFILA_SLOW
-#define Assert(Expression) if(!(Expression)) {*(int *)0 = 0;}
-#else
-#define Assert(Expression)
-#endif  // FOLAYFILA_SLOW
-
-#define Pi32 3.141459265359f
-
-#define Kilobytes(Value) ((Value) * 1024)
-#define Megabytes(Value) (Kilobytes(Value) * 1024)
-#define Gigabytes(Value) (Megabytes(Value) * 1024)
-
-#define ArrayCount(Array) (sizeof(Array) / sizeof((Array)[0]))
+#include "folayfila_types.h"
+#include "folayfila_tile.h"
 
 inline int StringLength(char* String)
 {
@@ -78,7 +35,7 @@ inline void CatStrings(size_t SourceACount, char* SourceA,
 /**************************************/
 
 /************** globals ***************/
-global_variable bool32 GlobalRunning;
+static bool32 GlobalRunning;
 /**************************************/
 
 /************** structs ***************/
@@ -152,45 +109,6 @@ struct color
     float R;
     float G;
     float B;
-};
-
-struct tile_chunk_position
-{
-    uint32 TilChunkX;
-    uint32 TilChunkY;
-
-    uint32 RelTileX;
-    uint32 RelTileY;
-};
-
-struct world_position
-{
-    uint32 AbsTileX;
-    uint32 AbsTileY;
-
-    float TileRelX;
-    float TileRelY;
-};
-
-struct tile_chunk
-{
-    uint32* Tiles;
-};
-
-struct world
-{
-    uint32 ChunkShift;
-    uint32 ChunkMask;
-    uint32 ChunkDim;
-
-    float TileSideInMeters;
-    int32 TileSideInPixels;
-    float MetersToPixels;
-
-    int32 TileChunkCountX;
-    int32 TileChunkCountY;
-
-    tile_chunk* TileChunks;
 };
 
 struct game_graphics_buffer
@@ -312,9 +230,24 @@ typedef GAME_UPDATE_AND_RENDER(game_update_and_render);
 ///
 ///
 /// 
+
+struct memory_arena
+{
+    size_t Size;
+    uint8* Base;
+    size_t Used;
+};
+
+struct world
+{
+    tile_map* TileMap;
+};
+
 struct game_state
 {
-    world_position PlayerP;
+    memory_arena WorldArena;
+    world* World;
+    tile_map_position PlayerP;
 };
 
 

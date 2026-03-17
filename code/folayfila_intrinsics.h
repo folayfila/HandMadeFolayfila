@@ -3,6 +3,7 @@
 #if !defined(FOLAYFILA_INTRINSICS_H)
 #define FOLAYFILA_INTRINSICS_H
 
+#include "folayfila_types.h"
 #include "math.h"
 
 // TODO: Remove math.h and write platform efecient code.
@@ -28,7 +29,7 @@ inline int32 Clamp32(int32 Value, int32 Min, int32 Max)
 
 inline int32 RoundFloatToInt32(float Float)
 {
-    int32 Result = (int32)(Float + 0.5f);
+    int32 Result = (int32)roundf(Float);
     return Result;
 }
 
