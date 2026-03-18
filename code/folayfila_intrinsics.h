@@ -8,6 +8,12 @@
 
 // TODO: Remove math.h and write platform efecient code.
 
+#include <stdlib.h>
+inline uint32 RandomU32()
+{
+    return (uint32)(rand() % 1000000);
+}
+
 inline uint32 SafeTruncateUInt64(uint64 Value)
 {
     Assert(Value <= 0xffffffff);

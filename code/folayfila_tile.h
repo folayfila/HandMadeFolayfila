@@ -12,6 +12,7 @@ struct tile_map_position
     // tile index in the chunk.
     uint32 AbsTileX;
     uint32 AbsTileY;
+    uint32 AbsTileZ;
 
     float TileRelX;
     float TileRelY;
@@ -21,6 +22,7 @@ struct tile_chunk_position
 {
     uint32 TilChunkX;
     uint32 TilChunkY;
+    uint32 TilChunkZ;
 
     uint32 RelTileX;
     uint32 RelTileY;
@@ -38,11 +40,10 @@ struct tile_map
     uint32 ChunkDim;
 
     float TileSideInMeters;
-    int32 TileSideInPixels;
-    float MetersToPixels;
 
     uint32 TileChunkCountX;
     uint32 TileChunkCountY;
+    uint32 TileChunkCountZ;
 
     tile_chunk* TileChunks;
 };

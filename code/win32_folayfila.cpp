@@ -563,6 +563,7 @@ static void Win32HandleKeyboardInput(win32_state* State, WPARAM WParam, LPARAM L
         }
         else if (VKCode == VK_SPACE)
         {
+            Win32ProcessKeyboardMessage(&KeyboardController->ActionUp, IsDown);
         }
         else if (VKCode == VK_ESCAPE)
         {

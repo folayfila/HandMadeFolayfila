@@ -251,4 +251,17 @@ struct game_state
 };
 
 
+
+#define PushSize(Arena, type) (type *)PushSize_(Arena, sizeof(type))
+#define PushArray(Arena, Count, type) (type *)PushSize_(Arena, (Count)*sizeof(type))
+void* PushSize_(memory_arena* Arena, size_t Size)
+{
+    Assert((Arena->Used + Size) <= Arena->Size);
+    void* Result = Arena->Base + Arena->Used;
+    Arena->Used += Size;
+
+    return Result;
+}
+
+
 #endif  // FOLAYFILA_H
