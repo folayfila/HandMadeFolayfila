@@ -62,6 +62,32 @@ static void InitialzeArena(memory_arena* Arena, size_t ArenaSize, uint8* Storage
     Arena->Used = 0;
 }
 
+#pragma pack(push, 1)
+struct bitmap_header
+{
+    uint16 FileType;       /* File type, always 4D42h ("BM") */
+    uint32 FileSize;       /* Size of the file in bytes */
+    uint16 Reserved1;      /* Always 0 */
+    uint16 Reserved2;      /* Always 0 */
+    uint32 BitmapOffset;   /* Starting position of image data in bytes */
+    uint32 Size;           /* Size of this header in bytes */
+    int32 Width;           /* Image width in pixels */
+    int32 Height;          /* Image height in pixels */
+    uint16  Planes;        /* Number of color planes */
+    uint16  BitsPerPixel;  /* Number of bits per pixel */
+};
+#pragma pack(pop)
+
+static void DEBUGLoadBMP(thread_context* Thread, debug_platform_read_entire_file* ReadEntireFile, char *FileName)
+{
+    debug_read_file_result ReadResult = ReadEntireFile(Thread, FileName);
+    if (ReadResult.ContentSize != 0)
+    {
+        bitmap_header* Header = (bitmap_header*)ReadResult.Contents;
+        uint32 *Pixels = (uint32 *)((uint8 *)ReadResult.Contents + Header->BitmapOffset);
+    }
+}
+
 extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 {
     Assert((&Input->Controllers[0].Terminator - &Input->Controllers[0].Buttons[0]) ==
@@ -72,6 +98,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
     if (!GameMemory->IsInitialized)
     {
+        DEBUGLoadBMP(Thread, GameMemory->DEBUGPlatformReadEntireFile, "sprites/folayfila_pixel_spritesheet.bmp");
+
         GameState->PlayerP.AbsTileX = 2;
         GameState->PlayerP.AbsTileY = 5;
         GameState->PlayerP.TileRelX = 0.5f;
@@ -124,8 +152,10 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                 RandomChoice = RandomU32() % 3;
             }
 
+            bool32 CreatedZDoor = false;
             if (RandomChoice == 2)
             {
+                CreatedZDoor = true;
                 if (AbsTileZ)
                 {
                     DoorUp = true;
@@ -183,23 +213,20 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
             DoorLeft = DoorRight;
             DoorBottom = DoorTop;
-            DoorRight = false;
-            DoorTop = false;
-            if (DoorUp)
+
+            if (CreatedZDoor)
             {
-                DoorDown = true;
-                DoorUp = false;
-            }
-            else if (DoorDown)
-            {
-                DoorUp = true;
-                DoorDown = false;
+                DoorDown = !DoorDown;
+                DoorUp = !DoorUp;
             }
             else
             {
                 DoorUp = false;
                 DoorDown = false;
             }
+
+            DoorRight = false;
+            DoorTop = false;
 
             if (RandomChoice == 2)
             {
@@ -305,6 +332,18 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         if (IsTileMapPointEmpty(TileMap, PlayerBottomRight) &&
             IsTileMapPointEmpty(TileMap, PlayerBootmLeft))
         {
+            if (!AreOnSameTiles(&GameState->PlayerP, &NewPlayerP))
+            {
+                uint32 TileValue = GetTileValue(TileMap, &NewPlayerP);
+                if (TileValue == 'o')
+                {
+                    ++NewPlayerP.AbsTileZ;
+                }
+                else if (TileValue == 'i')
+                {
+                    --NewPlayerP.AbsTileZ;
+                }
+            }
             GameState->PlayerP = NewPlayerP;
         }
     }
@@ -336,7 +375,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
             case 'i':
             {
                 // Up stair
-                TileColor = color(0.0f, 0.0f, 0.0f);
+                TileColor = color(0.5f, 0.5f, 0.5f);
             } break;
             case 'o':
             {
