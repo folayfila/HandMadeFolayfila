@@ -254,7 +254,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
     tile_map* TileMap = GameState->World->TileMap;
 
-    int32 TileSideInPixels = 60;
+    int32 TileSideInPixels = 70;
     float MetersToPixels = (float)TileSideInPixels / TileMap->TileSideInMeters;
 
     float PlayerWidth = 0.5f * TileMap->TileSideInMeters;
@@ -391,7 +391,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
             if (Column == GameState->PlayerP.AbsTileX && Row == GameState->PlayerP.AbsTileY)
             {
-                TileColor = color(1.0f, 0.0f, 0.0f);
+                //TileColor = color(1.0f, 0.0f, 0.0f);
             }
 
             float PlayerOffsetX = MetersToPixels * GameState->PlayerP.TileRelX;
