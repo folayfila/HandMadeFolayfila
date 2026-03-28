@@ -30,7 +30,7 @@ static void GameOutputSound(game_state* GameState, game_output_sound_buffer* Sou
 
 static void DrawRectangle(game_graphics_buffer* Buffer, vec2 Min, vec2 Max, color Color)
 {
-    uint8* EndOfBuffer = (uint8*)Buffer->Memory + Buffer->Pitch * Buffer->Height;
+    // EndOfBuffer = Buffer->Memory + Buffer->Pitch * Buffer->Height;
 
     int32 MinX = Clamp32(RoundFloatToInt32(Min.X), 0, Buffer->Width);
     int32 MaxX = Clamp32(RoundFloatToInt32(Max.X), 0, Buffer->Width);
@@ -52,6 +52,34 @@ static void DrawRectangle(game_graphics_buffer* Buffer, vec2 Min, vec2 Max, colo
             *Pixel++ = Color32;
         }
         Row += Buffer->Pitch;
+    }
+}
+
+static void DrawBitmap(game_graphics_buffer* Buffer, loaded_bitmap* Bitmap, float FloatX, float FloatY)
+{
+    int32 MinX = Clamp32(RoundFloatToInt32(FloatX), 0, Buffer->Width);
+    int32 MinY = Clamp32(RoundFloatToInt32(FloatY), 0, Buffer->Height);
+    int32 MaxX = Clamp32(RoundFloatToInt32(FloatX + Bitmap->Width), 0, Buffer->Width);
+    int32 MaxY = Clamp32(RoundFloatToInt32(FloatY + Bitmap->Height), 0, Buffer->Height);
+
+    int32 BlitWidth = Bitmap->Width;
+    int32 BlitHeight = Bitmap->Height;
+
+    uint32* SourceRow = Bitmap->Pixels + BlitWidth * (BlitHeight - 1);
+    uint8* DestRow = ((uint8*)Buffer->Memory + MinX * Buffer->BytesPerPixel + MinY * Buffer->Pitch);
+
+    for (int32 Y = MinY; Y < MaxY; ++Y)
+    {
+        // Start at the last row and move up.
+        uint32* Source = SourceRow;
+        uint32* Dest = (uint32*)DestRow;
+
+        for (int32 X = MinX; X < MaxX; ++X)
+        {
+            *Dest++ = *Source++;
+        }
+        DestRow += Buffer->Pitch;
+        SourceRow -= BlitWidth;
     }
 }
 
@@ -78,14 +106,19 @@ struct bitmap_header
 };
 #pragma pack(pop)
 
-static void DEBUGLoadBMP(thread_context* Thread, debug_platform_read_entire_file* ReadEntireFile, char *FileName)
+static loaded_bitmap DEBUGLoadBMP(thread_context* Thread, debug_platform_read_entire_file* ReadEntireFile, char* FileName)
 {
+    loaded_bitmap Result = {};
     debug_read_file_result ReadResult = ReadEntireFile(Thread, FileName);
     if (ReadResult.ContentSize != 0)
     {
         bitmap_header* Header = (bitmap_header*)ReadResult.Contents;
-        uint32 *Pixels = (uint32 *)((uint8 *)ReadResult.Contents + Header->BitmapOffset);
+        uint32* Pixels = (uint32*)((uint8*)ReadResult.Contents + Header->BitmapOffset);
+        Result.Pixels = Pixels;
+        Result.Width = Header->Width;
+        Result.Height = Header->Height;
     }
+    return Result;
 }
 
 extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
@@ -98,7 +131,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
     if (!GameMemory->IsInitialized)
     {
-        DEBUGLoadBMP(Thread, GameMemory->DEBUGPlatformReadEntireFile, "sprites/folayfila_pixel_spritesheet.bmp");
+        GameState->PlayerBMP = DEBUGLoadBMP(Thread, GameMemory->DEBUGPlatformReadEntireFile, "sprites/folayfila_64_0.bmp");
 
         GameState->PlayerP.AbsTileX = 2;
         GameState->PlayerP.AbsTileY = 5;
@@ -254,11 +287,11 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
     tile_map* TileMap = GameState->World->TileMap;
 
-    int32 TileSideInPixels = 70;
+    int32 TileSideInPixels = 80;
     float MetersToPixels = (float)TileSideInPixels / TileMap->TileSideInMeters;
 
-    float PlayerWidth = 0.5f * TileMap->TileSideInMeters;
-    float PlayerHeight = 0.5f * TileMap->TileSideInMeters;
+    float PlayerWidth = (float)GameState->PlayerBMP.Width;
+    float PlayerHeight = (float)GameState->PlayerBMP.Height;
 
     for (int ControllerIndex = 0; ControllerIndex < ArrayCount(Input->Controllers); ++ControllerIndex)
     {
@@ -323,14 +356,11 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         NewPlayerP = RecanonicalizePosition(TileMap, NewPlayerP);
 
         tile_map_position PlayerBottomRight = NewPlayerP;
-        PlayerBottomRight.TileRelX += PlayerWidth;
+        PlayerBottomRight.TileRelX += PlayerWidth/ TileSideInPixels;
         PlayerBottomRight = RecanonicalizePosition(TileMap, PlayerBottomRight);
 
-        tile_map_position PlayerBootmLeft = NewPlayerP;
-        PlayerBootmLeft = RecanonicalizePosition(TileMap, PlayerBootmLeft);
-
         if (IsTileMapPointEmpty(TileMap, PlayerBottomRight) &&
-            IsTileMapPointEmpty(TileMap, PlayerBootmLeft))
+            IsTileMapPointEmpty(TileMap, NewPlayerP))
         {
             if (!AreOnSameTiles(&GameState->PlayerP, &NewPlayerP))
             {
@@ -408,13 +438,10 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         }
     }
 
-    color PlayerColor(1.0f, 0.5f, 0.5f);
     float Left = ScreenCenterX;
-    float Bottom = ScreenCenterY - MetersToPixels*PlayerHeight;
-    
-    DrawRectangle(GraphicsBuffer, vec2(Left, Bottom),
-        vec2(Left + MetersToPixels*PlayerWidth, Bottom + MetersToPixels*PlayerHeight),
-        PlayerColor);
+    float Bottom = ScreenCenterY - PlayerHeight;
+
+    DrawBitmap(GraphicsBuffer, &GameState->PlayerBMP, Left, Bottom);
 }
 /****************************************************************************/
 // Old code
