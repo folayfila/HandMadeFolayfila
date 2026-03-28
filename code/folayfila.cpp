@@ -57,8 +57,22 @@ static void DrawRectangle(game_graphics_buffer* Buffer, vec2 Min, vec2 Max, colo
 
 static void DrawBitmap(game_graphics_buffer* Buffer, loaded_bitmap* Bitmap, float FloatX, float FloatY)
 {
-    int32 MinX = Clamp32(RoundFloatToInt32(FloatX), 0, Buffer->Width);
-    int32 MinY = Clamp32(RoundFloatToInt32(FloatY), 0, Buffer->Height);
+    int32 SourceOffsetX = 0;
+    int32 MinX = RoundFloatToInt32(FloatX);
+    if (MinX < 0)
+    {
+        SourceOffsetX = -MinX;
+        MinX = 0;
+    }
+    
+    int32 SourceOffsetY = 0;
+    int32 MinY = RoundFloatToInt32(FloatY);
+    if (MinY < 0)
+    {
+        SourceOffsetY = -MinY;
+        MinX = 0;
+    }
+
     int32 MaxX = Clamp32(RoundFloatToInt32(FloatX + Bitmap->Width), 0, Buffer->Width);
     int32 MaxY = Clamp32(RoundFloatToInt32(FloatY + Bitmap->Height), 0, Buffer->Height);
 
@@ -66,6 +80,7 @@ static void DrawBitmap(game_graphics_buffer* Buffer, loaded_bitmap* Bitmap, floa
     int32 BlitHeight = Bitmap->Height;
 
     uint32* SourceRow = Bitmap->Pixels + BlitWidth * (BlitHeight - 1);
+    SourceRow += -SourceOffsetY*Bitmap->Width + SourceOffsetX; // Fixes clipping on edges.
     uint8* DestRow = ((uint8*)Buffer->Memory + MinX * Buffer->BytesPerPixel + MinY * Buffer->Pitch);
 
     for (int32 Y = MinY; Y < MaxY; ++Y)
@@ -86,9 +101,9 @@ static void DrawBitmap(game_graphics_buffer* Buffer, loaded_bitmap* Bitmap, floa
             float DesB = (float)((*Dest >> 0) & 0xFF);
 
             // Linear Blend: C = A + t(B - A)
-            float R = DesR + A * (SrcR - DesR);   // Or R = (1-A)*SR + (A*DR)
-            float G = DesG + A * (SrcG - DesG);
-            float B = DesB + A * (SrcB - DesB);
+            float R = LinearBlend(DesR, SrcR, A);
+            float G = LinearBlend(DesG, SrcG, A);
+            float B = LinearBlend(DesB, SrcB, A);
 
             *Dest = ((RoundFloatToUInt32(R) << 16) |
                      (RoundFloatToUInt32(G) << 8)|
@@ -189,14 +204,20 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
     game_state* GameState = (game_state*)GameMemory->PermanentStorage;
 
+    uint32 TilesPerWidth = 17;
+    uint32 TilesPerHeight = 9;
+
     if (!GameMemory->IsInitialized)
     {
         GameState->PlayerBMP = DEBUGLoadBMP(Thread, GameMemory->DEBUGPlatformReadEntireFile, "sprites/folayfila_64_0.bmp");
 
+        GameState->CameraP.AbsTileX = TilesPerWidth/2;
+        GameState->CameraP.AbsTileY = TilesPerHeight/2;
+
         GameState->PlayerP.AbsTileX = 2;
         GameState->PlayerP.AbsTileY = 5;
-        GameState->PlayerP.TileRelX = 0.5f;
-        GameState->PlayerP.TileRelY = 0.5f;
+        GameState->PlayerP.OffsetX = 0.5f;
+        GameState->PlayerP.OffsetY = 0.5f;
 
         InitialzeArena(&GameState->WorldArena, (size_t)(GameMemory->PermanentStorageSize - sizeof(game_state)), 
             (uint8 *)GameMemory->PermanentStorage + sizeof(game_state));
@@ -221,8 +242,6 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
             TileMap->TileChunkCountX*TileMap->TileChunkCountY*TileMap->TileChunkCountZ,
             tile_chunk);
 
-        uint32 TilesPerWidth = 17;
-        uint32 TilesPerHeight = 9;
         uint32 ScreenY = 0;
         uint32 ScreenX = 0;
         uint32 AbsTileZ = 0;
@@ -347,7 +366,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
     tile_map* TileMap = GameState->World->TileMap;
 
-    int32 TileSideInPixels = 80;
+    int32 TileSideInPixels = 60;
     float MetersToPixels = (float)TileSideInPixels / TileMap->TileSideInMeters;
 
     float PlayerWidth = (float)GameState->PlayerBMP.Width;
@@ -411,16 +430,11 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
             continue;
         }
         tile_map_position NewPlayerP = GameState->PlayerP;
-        NewPlayerP.TileRelX += dPlayer.X;
-        NewPlayerP.TileRelY += dPlayer.Y;
+        NewPlayerP.OffsetX += dPlayer.X;
+        NewPlayerP.OffsetY += dPlayer.Y;
         NewPlayerP = RecanonicalizePosition(TileMap, NewPlayerP);
 
-        tile_map_position PlayerBottomRight = NewPlayerP;
-        PlayerBottomRight.TileRelX += PlayerWidth/ TileSideInPixels;
-        PlayerBottomRight = RecanonicalizePosition(TileMap, PlayerBottomRight);
-
-        if (IsTileMapPointEmpty(TileMap, PlayerBottomRight) &&
-            IsTileMapPointEmpty(TileMap, NewPlayerP))
+        if (IsTileMapPointEmpty(TileMap, NewPlayerP))
         {
             if (!AreOnSameTiles(&GameState->PlayerP, &NewPlayerP))
             {
@@ -436,21 +450,41 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
             }
             GameState->PlayerP = NewPlayerP;
         }
+        GameState->CameraP.AbsTileZ = GameState->PlayerP.AbsTileZ;
+
+        tile_map_difference Diff = Subtract(TileMap, &GameState->PlayerP, &GameState->CameraP);
+        if (Diff.dX > (((float)TilesPerWidth/2.0f)* TileMap->TileSideInMeters))
+        {
+            GameState->CameraP.AbsTileX += TilesPerWidth;
+        }
+        else if (Diff.dX < -(((float)TilesPerWidth/2.0f) * TileMap->TileSideInMeters))
+        {
+            --GameState->CameraP.AbsTileX -= TilesPerWidth;
+        }
+
+        if (Diff.dY > (((float)TilesPerHeight/2.0f) * TileMap->TileSideInMeters))
+        {
+            GameState->CameraP.AbsTileY += TilesPerHeight;
+        }
+        else if (Diff.dY < -(((float)TilesPerHeight/2.0f) * TileMap->TileSideInMeters))
+        {
+            GameState->CameraP.AbsTileY -= TilesPerHeight;
+        }
     }
 
     DrawRectangle(GraphicsBuffer, vec2(0.0f), vec2(1000.0f), color(0.0f, 0.0f, 0.0f));
 
-    float ScreenCenterX = 0.5f * (float)GraphicsBuffer->Width;
-    float ScreenCenterY = 0.5f * (float)GraphicsBuffer->Height;
+    float ScreenCenterX = 0.5f * (float)GraphicsBuffer->Width - TileSideInPixels/2;
+    float ScreenCenterY = 0.5f * (float)GraphicsBuffer->Height + TileSideInPixels/2;
 
     for (int32 RelRow = -100; RelRow < 100; ++RelRow)
     {
         for (int32 RelColumn = -200; RelColumn < 200; ++RelColumn)
         {
             color TileColor;
-            uint32 Column = GameState->PlayerP.AbsTileX + RelColumn;
-            uint32 Row = GameState->PlayerP.AbsTileY + RelRow;
-            switch (GetTileValue(TileMap, Column, Row, GameState->PlayerP.AbsTileZ))
+            uint32 Column = GameState->CameraP.AbsTileX + RelColumn;
+            uint32 Row = GameState->CameraP.AbsTileY + RelRow;
+            switch (GetTileValue(TileMap, Column, Row, GameState->CameraP.AbsTileZ))
             {
             case 'd':
             {
@@ -479,29 +513,31 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
             }break;
             }
 
-            if (Column == GameState->PlayerP.AbsTileX && Row == GameState->PlayerP.AbsTileY)
+            if (Column == GameState->CameraP.AbsTileX && Row == GameState->CameraP.AbsTileY)
             {
                 //TileColor = color(1.0f, 0.0f, 0.0f);
             }
 
-            float PlayerOffsetX = MetersToPixels * GameState->PlayerP.TileRelX;
-            float PlayerOffsetY = MetersToPixels * GameState->PlayerP.TileRelY;
+            float CamOffsetX = MetersToPixels * GameState->CameraP.OffsetX;
+            float CamOffsetY = MetersToPixels * GameState->CameraP.OffsetY;
 
             vec2 Min, Max;
-            Min.X = ScreenCenterX + (float)RelColumn * TileSideInPixels - PlayerOffsetX;
-            Min.Y = ScreenCenterY - (float)RelRow * TileSideInPixels + PlayerOffsetY - TileSideInPixels;
+            Min.X = ScreenCenterX + (float)RelColumn * TileSideInPixels - CamOffsetX;
+            Min.Y = ScreenCenterY - (float)RelRow * TileSideInPixels + CamOffsetY - TileSideInPixels;
 
             Max.X = Min.X + TileSideInPixels;
-            Max.Y = ScreenCenterY - (float)RelRow * TileSideInPixels + PlayerOffsetY;
+            Max.Y = ScreenCenterY - (float)RelRow * TileSideInPixels + CamOffsetY;
 
             DrawRectangle(GraphicsBuffer, Min, Max, TileColor);
         }
     }
 
-    float Left = ScreenCenterX;
-    float Bottom = ScreenCenterY - PlayerHeight;
+    tile_map_difference Diff = Subtract(TileMap, &GameState->PlayerP, &GameState->CameraP);
 
-    DrawBitmap(GraphicsBuffer, &GameState->PlayerBMP, Left, Bottom);
+    float PlayerGroundPointX = (ScreenCenterX + MetersToPixels*Diff.dX);
+    float PlayerGroundPointY = (ScreenCenterY - MetersToPixels * Diff.dY) - PlayerHeight*0.9f;
+
+    DrawBitmap(GraphicsBuffer, &GameState->PlayerBMP, PlayerGroundPointX, PlayerGroundPointY);
 }
 /****************************************************************************/
 // Old code

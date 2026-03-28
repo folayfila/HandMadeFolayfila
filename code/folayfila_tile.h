@@ -5,6 +5,13 @@
 
 #include "folayfila_types.h"
 
+struct tile_map_difference
+{
+    float dX;
+    float dY;
+    float dZ;
+};
+
 struct tile_map_position
 {
     // Fixed point tile locations.
@@ -14,8 +21,8 @@ struct tile_map_position
     uint32 AbsTileY;
     uint32 AbsTileZ;
 
-    float TileRelX;
-    float TileRelY;
+    float OffsetX;
+    float OffsetY;
 };
 
 struct tile_chunk_position
@@ -24,8 +31,8 @@ struct tile_chunk_position
     uint32 TilChunkY;
     uint32 TilChunkZ;
 
-    uint32 OffsetX;
-    uint32 OffsetY;
+    uint32 TileRelX;
+    uint32 TileRelY;
 };
 
 struct tile_chunk

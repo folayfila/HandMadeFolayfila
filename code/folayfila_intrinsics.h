@@ -83,6 +83,12 @@ inline float ATan2(float Y, float X)
     return Result;
 }
 
+inline float LinearBlend(float A, float B, float T)
+{
+    float Result = A + T * (B - A); // Or (1-T)A + T*B
+    return Result;
+}
+
 struct bit_scan_result
 {
     bool32 Found;

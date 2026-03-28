@@ -17,8 +17,8 @@ inline tile_map_position RecanonicalizePosition(tile_map* TileMap, tile_map_posi
 {
     tile_map_position Result = Pos;
 
-    CannonicalizeCoord(TileMap, &Result.AbsTileX, &Result.TileRelX);
-    CannonicalizeCoord(TileMap, &Result.AbsTileY, &Result.TileRelY);
+    CannonicalizeCoord(TileMap, &Result.AbsTileX, &Result.OffsetX);
+    CannonicalizeCoord(TileMap, &Result.AbsTileY, &Result.OffsetY);
 
     return Result;
 }
@@ -30,8 +30,8 @@ inline tile_chunk_position GetChunckPositionFor(tile_map* TileMap, uint32 AbsTil
     Result.TilChunkX = AbsTileX >> TileMap->ChunkShift;
     Result.TilChunkY = AbsTileY >> TileMap->ChunkShift;
     Result.TilChunkZ = AbsTileZ;
-    Result.OffsetX = AbsTileX & TileMap->ChunkMask;
-    Result.OffsetY = AbsTileY & TileMap->ChunkMask;
+    Result.TileRelX = AbsTileX & TileMap->ChunkMask;
+    Result.TileRelY = AbsTileY & TileMap->ChunkMask;
 
     return Result;
 }
@@ -71,8 +71,8 @@ static void SetTileValue(memory_arena* Arena, tile_map* TileMap, uint32 AbsTileX
         }
 
         // Set the tile value
-        uint32 ChunkRelTileX = ChunkPos.OffsetX;
-        uint32 ChunkRelTileY = ChunkPos.OffsetY;
+        uint32 ChunkRelTileX = ChunkPos.TileRelX;
+        uint32 ChunkRelTileY = ChunkPos.TileRelY;
         Assert(ChunkRelTileX < TileMap->ChunkDim);
         Assert(ChunkRelTileY < TileMap->ChunkDim);
 
@@ -88,8 +88,8 @@ static uint32 GetTileValue(tile_map* TileMap, uint32 AbsTileX, uint32 AbsTileY, 
 
     if (TileChunk && TileChunk->Tiles)
     {
-        uint32 ChunkRelTileX = ChunkPos.OffsetX;
-        uint32 ChunkRelTileY = ChunkPos.OffsetY;
+        uint32 ChunkRelTileX = ChunkPos.TileRelX;
+        uint32 ChunkRelTileY = ChunkPos.TileRelY;
         Assert(ChunkRelTileX < TileMap->ChunkDim);
         Assert(ChunkRelTileY < TileMap->ChunkDim);
 
@@ -118,4 +118,19 @@ static bool32 AreOnSameTiles(tile_map_position *A, tile_map_position *B)
                             (A->AbsTileY == B->AbsTileY) &&
                             (A->AbsTileZ == B->AbsTileZ));
     return AreOnSameTile;
+}
+
+static tile_map_difference Subtract(tile_map *TileMap, tile_map_position* A, tile_map_position* B)
+{
+    tile_map_difference Result = {};
+
+    float dTileX = TileMap->TileSideInMeters*((float)A->AbsTileX - (float)B->AbsTileX);
+    float dTileY = TileMap->TileSideInMeters*((float)A->AbsTileY - (float)B->AbsTileY);
+    float dTileZ = TileMap->TileSideInMeters*((float)A->AbsTileZ - (float)B->AbsTileZ);
+
+    Result.dX = TileMap->TileSideInMeters* dTileX + (A->OffsetX - B->OffsetX);
+    Result.dY = TileMap->TileSideInMeters* dTileY + (A->OffsetY - B->OffsetY);
+    Result.dZ = TileMap->TileSideInMeters* dTileZ;
+
+    return Result;
 }
