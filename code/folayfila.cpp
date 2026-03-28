@@ -76,7 +76,26 @@ static void DrawBitmap(game_graphics_buffer* Buffer, loaded_bitmap* Bitmap, floa
 
         for (int32 X = MinX; X < MaxX; ++X)
         {
-            *Dest++ = *Source++;
+            float A = (float)((*Source >> 24) & 0xFF) / 255.0f;
+            float SrcR = (float)((*Source >> 16) & 0xFF);
+            float SrcG = (float)((*Source >> 8) & 0xFF);
+            float SrcB = (float)((*Source >> 0) & 0xFF);
+            
+            float DesR = (float)((*Dest >> 16) & 0xFF);
+            float DesG = (float)((*Dest >> 8) & 0xFF);
+            float DesB = (float)((*Dest >> 0) & 0xFF);
+
+            // Linear Blend: C = A + t(B - A)
+            float R = DesR + A * (SrcR - DesR);   // Or R = (1-A)*SR + (A*DR)
+            float G = DesG + A * (SrcG - DesG);
+            float B = DesB + A * (SrcB - DesB);
+
+            *Dest = ((RoundFloatToUInt32(R) << 16) |
+                     (RoundFloatToUInt32(G) << 8)|
+                     (RoundFloatToUInt32(B) << 0));
+
+            ++Dest;
+            ++Source;
         }
         DestRow += Buffer->Pitch;
         SourceRow -= BlitWidth;
@@ -93,16 +112,26 @@ static void InitialzeArena(memory_arena* Arena, size_t ArenaSize, uint8* Storage
 #pragma pack(push, 1)
 struct bitmap_header
 {
-    uint16 FileType;       /* File type, always 4D42h ("BM") */
-    uint32 FileSize;       /* Size of the file in bytes */
-    uint16 Reserved1;      /* Always 0 */
-    uint16 Reserved2;      /* Always 0 */
-    uint32 BitmapOffset;   /* Starting position of image data in bytes */
-    uint32 Size;           /* Size of this header in bytes */
-    int32 Width;           /* Image width in pixels */
-    int32 Height;          /* Image height in pixels */
-    uint16  Planes;        /* Number of color planes */
-    uint16  BitsPerPixel;  /* Number of bits per pixel */
+    uint16 FileType;        /* File type, always 4D42h ("BM") */
+    uint32 FileSize;        /* Size of the file in bytes */
+    uint16 Reserved1;       /* Always 0 */
+    uint16 Reserved2;       /* Always 0 */
+    uint32 BitmapOffset;    /* Starting position of image data in bytes */
+    uint32 Size;            /* Size of this header in bytes */
+    int32 Width;            /* Image width in pixels */
+    int32 Height;           /* Image height in pixels */
+    uint16  Planes;         /* Number of color planes */
+    uint16  BitsPerPixel;   /* Number of bits per pixel */
+    uint32 Compression;     /* Compression methods used */
+    uint32 SizeOfBitmap;    /* Size of bitmap in bytes */
+    int32  HorzResolution;  /* Horizontal resolution in pixels per meter */
+    int32  VertResolution;  /* Vertical resolution in pixels per meter */
+    uint32 ColorsUsed;      /* Number of colors in the image */
+    uint32 ColorsImportant; /* Minimum number of important colors */
+
+    uint32 RedMask;         /* Mask identifying bits of red component */
+    uint32 GreenMask;       /* Mask identifying bits of green component */
+    uint32 BlueMask;        /* Mask identifying bits of blue component */
 };
 #pragma pack(pop)
 
@@ -117,6 +146,37 @@ static loaded_bitmap DEBUGLoadBMP(thread_context* Thread, debug_platform_read_en
         Result.Pixels = Pixels;
         Result.Width = Header->Width;
         Result.Height = Header->Height;
+
+        // The only compression mode we load here is 3.
+        Assert(Header->Compression == 3)
+
+        uint32 RedMask = Header->RedMask;
+        uint32 GreenMask = Header->GreenMask;
+        uint32 BlueMask = Header->BlueMask;
+        uint32 AlphaMask = ~(RedMask | GreenMask | BlueMask);
+
+        bit_scan_result RedShift = FindLeastSignificantSetBit(RedMask);
+        bit_scan_result GreenShift = FindLeastSignificantSetBit(GreenMask);
+        bit_scan_result BlueShift = FindLeastSignificantSetBit(BlueMask);
+        bit_scan_result AlphaShift = FindLeastSignificantSetBit(AlphaMask);
+
+        Assert(RedShift.Found);
+        Assert(GreenShift.Found);
+        Assert(BlueShift.Found);
+        Assert(AlphaShift.Found);
+
+        uint32* SourceDest = Pixels;
+        for (int32 Y = 0; Y < Header->Height; ++Y)
+        {
+            for (int X = 0; X < Header->Width; ++X)
+            {
+                uint32 C = *SourceDest;
+                *SourceDest++ = ((((C >> AlphaShift.Index) & 0xFF) << 24) |
+                    (((C >> RedShift.Index) & 0xFF) << 16) |
+                    (((C >> GreenShift.Index) & 0xFF) << 8) |
+                    (((C >> BlueShift.Index) & 0xFF) << 0));
+            }
+        }
     }
     return Result;
 }
