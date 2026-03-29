@@ -5,6 +5,17 @@
 
 #include "folayfila_types.h"
 
+enum tile_type
+{
+    Dirt  = 1,
+    Grass = 2,
+    Water = 3,
+    CaveEntrance = 4,
+    CaveExit = 5,
+
+    None  = 0
+};
+
 struct tile_map_difference
 {
     float dX;
@@ -53,6 +64,9 @@ struct tile_map
     uint32 TileChunkCountZ;
 
     tile_chunk* TileChunks;
+
+    uint32 TilesPerWidth;
+    uint32 TilesPerHeight;
 };
 
 #endif // FOLAYFILA_TILE_H

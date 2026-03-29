@@ -34,10 +34,6 @@ inline void CatStrings(size_t SourceACount, char* SourceA,
 }
 /**************************************/
 
-/************** globals ***************/
-static bool32 GlobalRunning;
-/**************************************/
-
 /************** structs ***************/
 struct vec2
 {
@@ -126,6 +122,33 @@ struct game_output_sound_buffer
     int SampleCount;
     int16 *Samples;
 };
+
+
+#pragma pack(push, 1)
+struct bitmap_header
+{
+    uint16 FileType;        /* File type, always 4D42h ("BM") */
+    uint32 FileSize;        /* Size of the file in bytes */
+    uint16 Reserved1;       /* Always 0 */
+    uint16 Reserved2;       /* Always 0 */
+    uint32 BitmapOffset;    /* Starting position of image data in bytes */
+    uint32 Size;            /* Size of this header in bytes */
+    int32 Width;            /* Image width in pixels */
+    int32 Height;           /* Image height in pixels */
+    uint16  Planes;         /* Number of color planes */
+    uint16  BitsPerPixel;   /* Number of bits per pixel */
+    uint32 Compression;     /* Compression methods used */
+    uint32 SizeOfBitmap;    /* Size of bitmap in bytes */
+    int32  HorzResolution;  /* Horizontal resolution in pixels per meter */
+    int32  VertResolution;  /* Vertical resolution in pixels per meter */
+    uint32 ColorsUsed;      /* Number of colors in the image */
+    uint32 ColorsImportant; /* Minimum number of important colors */
+
+    uint32 RedMask;         /* Mask identifying bits of red component */
+    uint32 GreenMask;       /* Mask identifying bits of green component */
+    uint32 BlueMask;        /* Mask identifying bits of blue component */
+};
+#pragma pack(pop)
 
 struct game_button_state
 {

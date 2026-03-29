@@ -5,11 +5,11 @@
 #include "folayfila_intrinsics.h"
 #include "folayfila_tile.cpp"
 
-static void GameOutputSound(game_state* GameState, game_output_sound_buffer* SoundBuffer)
+internal void GameOutputSound(game_state* GameState, game_output_sound_buffer* SoundBuffer)
 {
     int16 ToneVolume = 3000;
     int16 ToneHz = 256;
-    static float tSine = 0.0f;
+    local_presist float tSine = 0.0f;
     int WavePeriod = SoundBuffer->SamplesPerSecond / ToneHz;
 
     int16* SampleOut = SoundBuffer->Samples;
@@ -28,7 +28,7 @@ static void GameOutputSound(game_state* GameState, game_output_sound_buffer* Sou
     }
 }
 
-static void DrawRectangle(game_graphics_buffer* Buffer, vec2 Min, vec2 Max, color Color)
+internal void DrawRectangle(game_graphics_buffer* Buffer, vec2 Min, vec2 Max, color Color)
 {
     // EndOfBuffer = Buffer->Memory + Buffer->Pitch * Buffer->Height;
 
@@ -55,7 +55,7 @@ static void DrawRectangle(game_graphics_buffer* Buffer, vec2 Min, vec2 Max, colo
     }
 }
 
-static void DrawBitmap(game_graphics_buffer* Buffer, loaded_bitmap* Bitmap, float FloatX, float FloatY)
+internal void DrawBitmap(game_graphics_buffer* Buffer, loaded_bitmap* Bitmap, float FloatX, float FloatY)
 {
     int32 SourceOffsetX = 0;
     int32 MinX = RoundFloatToInt32(FloatX);
@@ -70,11 +70,11 @@ static void DrawBitmap(game_graphics_buffer* Buffer, loaded_bitmap* Bitmap, floa
     if (MinY < 0)
     {
         SourceOffsetY = -MinY;
-        MinX = 0;
+        MinY = 0;
     }
 
-    int32 MaxX = Clamp32(RoundFloatToInt32(FloatX + Bitmap->Width), 0, Buffer->Width);
-    int32 MaxY = Clamp32(RoundFloatToInt32(FloatY + Bitmap->Height), 0, Buffer->Height);
+    int32 MaxX = Clamp32(RoundFloatToInt32(FloatX + Bitmap->Width), MinX, Buffer->Width);
+    int32 MaxY = Clamp32(RoundFloatToInt32(FloatY + Bitmap->Height), MinY, Buffer->Height);
 
     int32 BlitWidth = Bitmap->Width;
     int32 BlitHeight = Bitmap->Height;
@@ -117,40 +117,14 @@ static void DrawBitmap(game_graphics_buffer* Buffer, loaded_bitmap* Bitmap, floa
     }
 }
 
-static void InitialzeArena(memory_arena* Arena, size_t ArenaSize, uint8* Storage)
+internal void InitialzeArena(memory_arena* Arena, size_t ArenaSize, uint8* Storage)
 {
     Arena->Size = ArenaSize;
     Arena->Base = Storage;
     Arena->Used = 0;
 }
 
-#pragma pack(push, 1)
-struct bitmap_header
-{
-    uint16 FileType;        /* File type, always 4D42h ("BM") */
-    uint32 FileSize;        /* Size of the file in bytes */
-    uint16 Reserved1;       /* Always 0 */
-    uint16 Reserved2;       /* Always 0 */
-    uint32 BitmapOffset;    /* Starting position of image data in bytes */
-    uint32 Size;            /* Size of this header in bytes */
-    int32 Width;            /* Image width in pixels */
-    int32 Height;           /* Image height in pixels */
-    uint16  Planes;         /* Number of color planes */
-    uint16  BitsPerPixel;   /* Number of bits per pixel */
-    uint32 Compression;     /* Compression methods used */
-    uint32 SizeOfBitmap;    /* Size of bitmap in bytes */
-    int32  HorzResolution;  /* Horizontal resolution in pixels per meter */
-    int32  VertResolution;  /* Vertical resolution in pixels per meter */
-    uint32 ColorsUsed;      /* Number of colors in the image */
-    uint32 ColorsImportant; /* Minimum number of important colors */
-
-    uint32 RedMask;         /* Mask identifying bits of red component */
-    uint32 GreenMask;       /* Mask identifying bits of green component */
-    uint32 BlueMask;        /* Mask identifying bits of blue component */
-};
-#pragma pack(pop)
-
-static loaded_bitmap DEBUGLoadBMP(thread_context* Thread, debug_platform_read_entire_file* ReadEntireFile, char* FileName)
+internal loaded_bitmap DEBUGLoadBMP(thread_context* Thread, debug_platform_read_entire_file* ReadEntireFile, char* FileName)
 {
     loaded_bitmap Result = {};
     debug_read_file_result ReadResult = ReadEntireFile(Thread, FileName);
@@ -196,31 +170,21 @@ static loaded_bitmap DEBUGLoadBMP(thread_context* Thread, debug_platform_read_en
     return Result;
 }
 
-extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
+internal GAME_UPDATE_AND_RENDER(InitializeGame)
 {
-    Assert((&Input->Controllers[0].Terminator - &Input->Controllers[0].Buttons[0]) ==
-        (ArrayCount(Input->Controllers[0].Buttons)));
-    Assert(sizeof(game_state) <= GameMemory->PermanentStorageSize);
-
     game_state* GameState = (game_state*)GameMemory->PermanentStorage;
-
-    uint32 TilesPerWidth = 17;
-    uint32 TilesPerHeight = 9;
 
     if (!GameMemory->IsInitialized)
     {
         GameState->PlayerBMP = DEBUGLoadBMP(Thread, GameMemory->DEBUGPlatformReadEntireFile, "sprites/folayfila_64_0.bmp");
-
-        GameState->CameraP.AbsTileX = TilesPerWidth/2;
-        GameState->CameraP.AbsTileY = TilesPerHeight/2;
 
         GameState->PlayerP.AbsTileX = 2;
         GameState->PlayerP.AbsTileY = 5;
         GameState->PlayerP.OffsetX = 0.5f;
         GameState->PlayerP.OffsetY = 0.5f;
 
-        InitialzeArena(&GameState->WorldArena, (size_t)(GameMemory->PermanentStorageSize - sizeof(game_state)), 
-            (uint8 *)GameMemory->PermanentStorage + sizeof(game_state));
+        InitialzeArena(&GameState->WorldArena, (size_t)(GameMemory->PermanentStorageSize - sizeof(game_state)),
+            (uint8*)GameMemory->PermanentStorage + sizeof(game_state));
 
         GameState->World = PushSize(&GameState->WorldArena, world);
         world* World = GameState->World;
@@ -238,9 +202,15 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         TileMap->TileChunkCountY = 128;
         TileMap->TileChunkCountZ = 2;
 
-        TileMap->TileChunks = PushArray(&GameState->WorldArena, 
-            TileMap->TileChunkCountX*TileMap->TileChunkCountY*TileMap->TileChunkCountZ,
+        TileMap->TileChunks = PushArray(&GameState->WorldArena,
+            TileMap->TileChunkCountX * TileMap->TileChunkCountY * TileMap->TileChunkCountZ,
             tile_chunk);
+
+        TileMap->TilesPerWidth = 17;
+        TileMap->TilesPerHeight = 9;
+
+        GameState->CameraP.AbsTileX = TileMap->TilesPerWidth / 2;
+        GameState->CameraP.AbsTileY = TileMap->TilesPerHeight / 2;
 
         uint32 ScreenY = 0;
         uint32 ScreenX = 0;
@@ -286,6 +256,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                 DoorTop = true;
             }
 
+            uint32 TilesPerWidth = TileMap->TilesPerWidth;
+            uint32 TilesPerHeight = TileMap->TilesPerHeight;
             for (uint32 TileY = 0; TileY < TilesPerHeight; ++TileY)
             {
                 for (uint32 TileX = 0; TileX < TilesPerWidth; ++TileX)
@@ -294,28 +266,28 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                     uint32 AbsTileY = ScreenY * TilesPerHeight + TileY;
 
                     // Note: Glorious code below! 
-                    uint32 TileValue = 'd';
+                    uint32 TileValue = tile_type::Dirt;
                     if (((TileX == 0) && !(TileY == (TilesPerHeight / 2) && DoorLeft)) ||
                         ((TileX == TilesPerWidth - 1) && !(TileY == (TilesPerHeight / 2) && DoorRight)))
                     {
-                        TileValue = 'g';
+                        TileValue = tile_type::Grass;
                     }
 
                     if (((TileY == 0) && !(TileX == (TilesPerWidth / 2) && DoorBottom)) ||
                         ((TileY == TilesPerHeight - 1) && !(TileX == (TilesPerWidth / 2) && DoorTop)))
                     {
-                        TileValue = 'g';
+                        TileValue = tile_type::Grass;
                     }
 
                     if ((TileX == 6) && (TileY == 6))
                     {
                         if (DoorUp)
                         {
-                            TileValue = 'i';
+                            TileValue = tile_type::CaveEntrance;
                         }
                         if (DoorDown)
                         {
-                            TileValue = 'o';
+                            TileValue = tile_type::CaveExit;
                         }
                     }
 
@@ -363,14 +335,11 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
         GameMemory->IsInitialized = true;
     }
+}
 
+internal void HandleGameInput(game_state *GameState, game_input *Input)
+{
     tile_map* TileMap = GameState->World->TileMap;
-
-    int32 TileSideInPixels = 60;
-    float MetersToPixels = (float)TileSideInPixels / TileMap->TileSideInMeters;
-
-    float PlayerWidth = (float)GameState->PlayerBMP.Width;
-    float PlayerHeight = (float)GameState->PlayerBMP.Height;
 
     for (int ControllerIndex = 0; ControllerIndex < ArrayCount(Input->Controllers); ++ControllerIndex)
     {
@@ -381,14 +350,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
             continue;
         }
 
-        // Quit game
-        if (ControllerInput->Back.EndedDown)
-        {
-            GlobalRunning = false;
-            break;
-        }
-
-        static float Speed = 5.0f;
+        local_presist float Speed = 5.0f;
         vec2 dPlayer(0.0f);
         if (ControllerInput->MoveDown.EndedDown)
         {
@@ -439,11 +401,11 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
             if (!AreOnSameTiles(&GameState->PlayerP, &NewPlayerP))
             {
                 uint32 TileValue = GetTileValue(TileMap, &NewPlayerP);
-                if (TileValue == 'o')
+                if (TileValue == tile_type::CaveExit)
                 {
                     ++NewPlayerP.AbsTileZ;
                 }
-                else if (TileValue == 'i')
+                else if (TileValue == tile_type::CaveEntrance)
                 {
                     --NewPlayerP.AbsTileZ;
                 }
@@ -453,30 +415,54 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         GameState->CameraP.AbsTileZ = GameState->PlayerP.AbsTileZ;
 
         tile_map_difference Diff = Subtract(TileMap, &GameState->PlayerP, &GameState->CameraP);
-        if (Diff.dX > (((float)TilesPerWidth/2.0f)* TileMap->TileSideInMeters))
+        if (Diff.dX > (((float)TileMap->TilesPerWidth / 2.0f) * TileMap->TileSideInMeters))
         {
-            GameState->CameraP.AbsTileX += TilesPerWidth;
+            GameState->CameraP.AbsTileX += TileMap->TilesPerWidth;
         }
-        else if (Diff.dX < -(((float)TilesPerWidth/2.0f) * TileMap->TileSideInMeters))
+        else if (Diff.dX < -(((float)TileMap->TilesPerWidth / 2.0f) * TileMap->TileSideInMeters))
         {
-            --GameState->CameraP.AbsTileX -= TilesPerWidth;
+            --GameState->CameraP.AbsTileX -= TileMap->TilesPerWidth;
         }
 
-        if (Diff.dY > (((float)TilesPerHeight/2.0f) * TileMap->TileSideInMeters))
+        if (Diff.dY > (((float)TileMap->TilesPerHeight / 2.0f) * TileMap->TileSideInMeters))
         {
-            GameState->CameraP.AbsTileY += TilesPerHeight;
+            GameState->CameraP.AbsTileY += TileMap->TilesPerHeight;
         }
-        else if (Diff.dY < -(((float)TilesPerHeight/2.0f) * TileMap->TileSideInMeters))
+        else if (Diff.dY < -(((float)TileMap->TilesPerHeight / 2.0f) * TileMap->TileSideInMeters))
         {
-            GameState->CameraP.AbsTileY -= TilesPerHeight;
+            GameState->CameraP.AbsTileY -= TileMap->TilesPerHeight;
         }
     }
+}
 
-    DrawRectangle(GraphicsBuffer, vec2(0.0f), vec2(1000.0f), color(0.0f, 0.0f, 0.0f));
+extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
+{
+    Assert((&Input->Controllers[0].Terminator - &Input->Controllers[0].Buttons[0]) ==
+        (ArrayCount(Input->Controllers[0].Buttons)));
+    Assert(sizeof(game_state) <= GameMemory->PermanentStorageSize);
+
+    if (!GameMemory->IsInitialized)
+    {
+        InitializeGame(Thread, GameMemory, Input, GraphicsBuffer, SoundBuffer);
+    }
+
+    game_state* GameState = (game_state*)GameMemory->PermanentStorage;
+    HandleGameInput(GameState, Input);
+
+    /// Drawing code:
+    //b 
+    tile_map* TileMap = GameState->World->TileMap;
+
+    uint32 TilesPerWidth = TileMap->TilesPerWidth;
+    uint32 TilesPerHeight = TileMap->TilesPerHeight;
+
+    int32 TileSideInPixels = 60;
+    float MetersToPixels = (float)TileSideInPixels / TileMap->TileSideInMeters;
 
     float ScreenCenterX = 0.5f * (float)GraphicsBuffer->Width - TileSideInPixels/2;
     float ScreenCenterY = 0.5f * (float)GraphicsBuffer->Height + TileSideInPixels/2;
 
+    // Draw Tilemap
     for (int32 RelRow = -100; RelRow < 100; ++RelRow)
     {
         for (int32 RelColumn = -200; RelColumn < 200; ++RelColumn)
@@ -486,24 +472,20 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
             uint32 Row = GameState->CameraP.AbsTileY + RelRow;
             switch (GetTileValue(TileMap, Column, Row, GameState->CameraP.AbsTileZ))
             {
-            case 'd':
+            case (tile_type::Dirt):
             {
-                // Dirt
                 TileColor = color(87.0f, 40.0f, 36.0f, true);
             } break;
-            case 'g':
+            case (tile_type::Grass):
             {
-                // Grass
                 TileColor = color(0.0f, 0.9f, 0.0f);
             } break;
-            case 'i':
+            case (tile_type::CaveEntrance):
             {
-                // Up stair
                 TileColor = color(0.5f, 0.5f, 0.5f);
             } break;
-            case 'o':
+            case (tile_type::CaveExit):
             {
-                // Down stair
                 TileColor = color(0.0f, 0.0f, 0.0f);
             } break;
             default:
@@ -535,17 +517,18 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     tile_map_difference Diff = Subtract(TileMap, &GameState->PlayerP, &GameState->CameraP);
 
     float PlayerGroundPointX = (ScreenCenterX + MetersToPixels*Diff.dX);
-    float PlayerGroundPointY = (ScreenCenterY - MetersToPixels * Diff.dY) - PlayerHeight*0.9f;
+    float PlayerGroundPointY = (ScreenCenterY - MetersToPixels * Diff.dY) - ((float)GameState->PlayerBMP.Height*0.9f);
 
+    // Draw Player
     DrawBitmap(GraphicsBuffer, &GameState->PlayerBMP, PlayerGroundPointX, PlayerGroundPointY);
 }
 /****************************************************************************/
 // Old code
 /*
-static void DisplayAwesomeGradient(game_graphics_buffer* Buffer, float XOffset, float YOffset)
+internal void DisplayAwesomeGradient(game_graphics_buffer* Buffer, float XOffset, float YOffset)
 {
-    static uint8 Red = 0;
-    static bool32 MaxRed = false;
+    local_presist uint8 Red = 0;
+    local_presist bool32 MaxRed = false;
     if (!MaxRed)
     {
         ++Red;

@@ -18,6 +18,10 @@ typedef uint64_t uint64;
 typedef int32 bool32;
 /**************************************/
 
+#define internal static
+#define global_variable static
+#define local_presist static
+
 /************** Compilers ***************/
 #ifndef COMPILER_MSVC
 #define COMPILER_MSVC 0
