@@ -5,6 +5,7 @@
 
 #include "folayfila_types.h"
 #include "folayfila_tile.h"
+#include "folayfila_math.h"
 
 inline int StringLength(char* String)
 {
@@ -35,78 +36,6 @@ inline void CatStrings(size_t SourceACount, char* SourceA,
 /**************************************/
 
 /************** structs ***************/
-struct vec2
-{
-    vec2() {}
-    vec2(int x, int y)
-    {
-        X = (float)x;
-        Y = (float)y;
-    }
-    vec2(float vec)
-    {
-        X = vec;
-        Y = vec;
-    }
-    vec2(float x, float y)
-    {
-        X = x;
-        Y = y;
-    }
-
-    vec2 operator*(float Scalar) const
-    {
-        vec2 Result;
-        Result.X = X * Scalar;
-        Result.Y = Y * Scalar;
-        return Result;
-    }
-
-    vec2& operator=(const vec2& Other)
-    {
-        if (this != &Other)
-        {
-            X = Other.X;
-            Y = Other.Y;
-        }
-        return *this;
-    }
-    vec2& operator+=(const vec2& Other)
-    {
-        if (this != &Other)
-        {
-            X += Other.X;
-            Y += Other.Y;
-        }
-        return *this;
-    }
-    float X;
-    float Y;
-};
-
-struct color
-{
-    color() {}
-    color(float r, float g, float b, bool32 Is255 = false)
-    {
-        if (Is255)
-        {
-            R = r / 255.0f;
-            G = g / 255.0f;
-            B = b / 255.0f;
-        }
-        else
-        {
-            R = r;
-            G = g;
-            B = b;
-        }
-    }
-    float R;
-    float G;
-    float B;
-};
-
 struct game_graphics_buffer
 {
 	void* Memory;

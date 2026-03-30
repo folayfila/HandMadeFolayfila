@@ -4,6 +4,7 @@
 #define FOLAYFILA_TILE_H
 
 #include "folayfila_types.h"
+#include "folayfila_math.h"
 
 enum tile_type
 {
@@ -18,8 +19,7 @@ enum tile_type
 
 struct tile_map_difference
 {
-    float dX;
-    float dY;
+    vec2 dXY;
     float dZ;
 };
 
@@ -32,8 +32,7 @@ struct tile_map_position
     uint32 AbsTileY;
     uint32 AbsTileZ;
 
-    float OffsetX;
-    float OffsetY;
+    vec2 Offset;
 };
 
 struct tile_chunk_position

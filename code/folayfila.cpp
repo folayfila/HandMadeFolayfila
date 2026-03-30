@@ -28,14 +28,14 @@ internal void GameOutputSound(game_state* GameState, game_output_sound_buffer* S
     }
 }
 
-internal void DrawRectangle(game_graphics_buffer* Buffer, vec2 Min, vec2 Max, color Color)
+internal void DrawRectangle(game_graphics_buffer* Buffer, vec2 vMin, vec2 vMax, color Color)
 {
     // EndOfBuffer = Buffer->Memory + Buffer->Pitch * Buffer->Height;
 
-    int32 MinX = Clamp32(RoundFloatToInt32(Min.X), 0, Buffer->Width);
-    int32 MaxX = Clamp32(RoundFloatToInt32(Max.X), 0, Buffer->Width);
-    int32 MinY = Clamp32(RoundFloatToInt32(Min.Y), 0, Buffer->Height);
-    int32 MaxY = Clamp32(RoundFloatToInt32(Max.Y), 0, Buffer->Height);
+    int32 MinX = Clamp32(RoundFloatToInt32(vMin.X), 0, Buffer->Width);
+    int32 MaxX = Clamp32(RoundFloatToInt32(vMax.X), 0, Buffer->Width);
+    int32 MinY = Clamp32(RoundFloatToInt32(vMin.Y), 0, Buffer->Height);
+    int32 MaxY = Clamp32(RoundFloatToInt32(vMax.Y), 0, Buffer->Height);
 
     uint8* Row = ((uint8*)Buffer->Memory + MinX * Buffer->BytesPerPixel + MinY * Buffer->Pitch);
     
@@ -178,10 +178,29 @@ internal GAME_UPDATE_AND_RENDER(InitializeGame)
     {
         GameState->PlayerBMP = DEBUGLoadBMP(Thread, GameMemory->DEBUGPlatformReadEntireFile, "sprites/folayfila_64_0.bmp");
 
+        // >> MAKING FOLAYFILA REEEEEDDDDD!!
+        uint32* SourceDest = GameState->PlayerBMP.Pixels;
+        for (int32 Y = 0; Y < GameState->PlayerBMP.Height; ++Y)
+        {
+            for (int X = 0; X < GameState->PlayerBMP.Width; ++X)
+            {
+                uint32 C = *SourceDest;
+                uint32 Red = (C & (0xFF) << 16);
+                uint32 Green = (C & (0xFF) << 8);
+                uint32 Blue = (C & (0xFF) << 0);
+
+                Red = Green << 8 | Red;
+                Green = Blue << 8;
+
+                uint32 NewColorMap = (C & (0xFF << 24)) | Red | Green | Blue;
+
+                *SourceDest++ = NewColorMap;
+            }
+        }
+
         GameState->PlayerP.AbsTileX = 2;
         GameState->PlayerP.AbsTileY = 5;
-        GameState->PlayerP.OffsetX = 0.5f;
-        GameState->PlayerP.OffsetY = 0.5f;
+        GameState->PlayerP.Offset = 0.5f;
 
         InitialzeArena(&GameState->WorldArena, (size_t)(GameMemory->PermanentStorageSize - sizeof(game_state)),
             (uint8*)GameMemory->PermanentStorage + sizeof(game_state));
@@ -351,7 +370,7 @@ internal void HandleGameInput(game_state *GameState, game_input *Input)
         }
 
         local_presist float Speed = 5.0f;
-        vec2 dPlayer(0.0f);
+        vec2 dPlayer = {};
         if (ControllerInput->MoveDown.EndedDown)
         {
             dPlayer.Y -= 1.0f;
@@ -383,17 +402,29 @@ internal void HandleGameInput(game_state *GameState, game_input *Input)
         }
         if (!ControllerInput->ActionUp.EndedDown)
         {
-            Speed = 5.0f;
+            Speed = 2.0f;
         }
-        dPlayer = (dPlayer * Speed) * Input->DeltaTime;
+        dPlayer *= Speed * Input->DeltaTime;
 
         if (dPlayer.X == 0 && dPlayer.Y == 0)
         {
             continue;
         }
+        else if (dPlayer.X != 0 && dPlayer.Y != 0)
+        {
+            // Using Pythagorean theorem to cancel the extended movement when the player
+            // is moving diagonally:
+            // A^2 + B^2 = C^2
+            // Diagonal means x=y; 2A^2 = C^2
+            // A^2 = (C^2)/2 -> A = Sqrt(C^2/2) = Sqrt(1/2)C
+            // Sqrt(1/2) = 0.7071067811865475f
+            float SqrtPointFive = 0.7071067811865475f;
+
+            dPlayer *= SqrtPointFive;
+        }
+
         tile_map_position NewPlayerP = GameState->PlayerP;
-        NewPlayerP.OffsetX += dPlayer.X;
-        NewPlayerP.OffsetY += dPlayer.Y;
+        NewPlayerP.Offset += dPlayer;
         NewPlayerP = RecanonicalizePosition(TileMap, NewPlayerP);
 
         if (IsTileMapPointEmpty(TileMap, NewPlayerP))
@@ -415,20 +446,20 @@ internal void HandleGameInput(game_state *GameState, game_input *Input)
         GameState->CameraP.AbsTileZ = GameState->PlayerP.AbsTileZ;
 
         tile_map_difference Diff = Subtract(TileMap, &GameState->PlayerP, &GameState->CameraP);
-        if (Diff.dX > (((float)TileMap->TilesPerWidth / 2.0f) * TileMap->TileSideInMeters))
+        if (Diff.dXY.X > (((float)TileMap->TilesPerWidth / 2.0f) * TileMap->TileSideInMeters))
         {
             GameState->CameraP.AbsTileX += TileMap->TilesPerWidth;
         }
-        else if (Diff.dX < -(((float)TileMap->TilesPerWidth / 2.0f) * TileMap->TileSideInMeters))
+        else if (Diff.dXY.X < -(((float)TileMap->TilesPerWidth / 2.0f) * TileMap->TileSideInMeters))
         {
             --GameState->CameraP.AbsTileX -= TileMap->TilesPerWidth;
         }
 
-        if (Diff.dY > (((float)TileMap->TilesPerHeight / 2.0f) * TileMap->TileSideInMeters))
+        if (Diff.dXY.Y > (((float)TileMap->TilesPerHeight / 2.0f) * TileMap->TileSideInMeters))
         {
             GameState->CameraP.AbsTileY += TileMap->TilesPerHeight;
         }
-        else if (Diff.dY < -(((float)TileMap->TilesPerHeight / 2.0f) * TileMap->TileSideInMeters))
+        else if (Diff.dXY.Y < -(((float)TileMap->TilesPerHeight / 2.0f) * TileMap->TileSideInMeters))
         {
             GameState->CameraP.AbsTileY -= TileMap->TilesPerHeight;
         }
@@ -467,48 +498,47 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     {
         for (int32 RelColumn = -200; RelColumn < 200; ++RelColumn)
         {
-            color TileColor;
+            color TileColor = {};
             uint32 Column = GameState->CameraP.AbsTileX + RelColumn;
             uint32 Row = GameState->CameraP.AbsTileY + RelRow;
             switch (GetTileValue(TileMap, Column, Row, GameState->CameraP.AbsTileZ))
             {
             case (tile_type::Dirt):
             {
-                TileColor = color(87.0f, 40.0f, 36.0f, true);
+                TileColor.Set(0.34f, 0.15f, 0.14f);
             } break;
             case (tile_type::Grass):
             {
-                TileColor = color(0.0f, 0.9f, 0.0f);
+                TileColor.G = 0.9f;
             } break;
             case (tile_type::CaveEntrance):
             {
-                TileColor = color(0.5f, 0.5f, 0.5f);
+                TileColor.Set(0.5f, 0.5f, 0.5f);
             } break;
             case (tile_type::CaveExit):
             {
-                TileColor = color(0.0f, 0.0f, 0.0f);
+                TileColor.Set(0.2f, 0.2f, 0.2f);
             } break;
             default:
             {
                 // Water
-                TileColor = color(0.2f, 0.75f, 0.95f);
+                TileColor.Set(0.2f, 0.75f, 0.95f);
             }break;
             }
 
             if (Column == GameState->CameraP.AbsTileX && Row == GameState->CameraP.AbsTileY)
             {
-                //TileColor = color(1.0f, 0.0f, 0.0f);
+                //TileColor.Set(1.0f, 0.0f, 0.0f);
             }
 
-            float CamOffsetX = MetersToPixels * GameState->CameraP.OffsetX;
-            float CamOffsetY = MetersToPixels * GameState->CameraP.OffsetY;
+            vec2 CamOffset = MetersToPixels * GameState->CameraP.Offset;
 
             vec2 Min, Max;
-            Min.X = ScreenCenterX + (float)RelColumn * TileSideInPixels - CamOffsetX;
-            Min.Y = ScreenCenterY - (float)RelRow * TileSideInPixels + CamOffsetY - TileSideInPixels;
+            Min.X = ScreenCenterX + (float)RelColumn * TileSideInPixels - CamOffset.X;
+            Min.Y = ScreenCenterY - (float)RelRow * TileSideInPixels + CamOffset.Y - TileSideInPixels;
 
             Max.X = Min.X + TileSideInPixels;
-            Max.Y = ScreenCenterY - (float)RelRow * TileSideInPixels + CamOffsetY;
+            Max.Y = ScreenCenterY - (float)RelRow * TileSideInPixels + CamOffset.Y;
 
             DrawRectangle(GraphicsBuffer, Min, Max, TileColor);
         }
@@ -516,8 +546,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
     tile_map_difference Diff = Subtract(TileMap, &GameState->PlayerP, &GameState->CameraP);
 
-    float PlayerGroundPointX = (ScreenCenterX + MetersToPixels*Diff.dX);
-    float PlayerGroundPointY = (ScreenCenterY - MetersToPixels * Diff.dY) - ((float)GameState->PlayerBMP.Height*0.9f);
+    float PlayerGroundPointX = (ScreenCenterX + MetersToPixels*Diff.dXY.X);
+    float PlayerGroundPointY = (ScreenCenterY - MetersToPixels * Diff.dXY.Y) - ((float)GameState->PlayerBMP.Height*0.9f);
 
     // Draw Player
     DrawBitmap(GraphicsBuffer, &GameState->PlayerBMP, PlayerGroundPointX, PlayerGroundPointY);

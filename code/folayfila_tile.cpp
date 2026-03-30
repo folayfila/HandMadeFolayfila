@@ -17,8 +17,8 @@ inline tile_map_position RecanonicalizePosition(tile_map* TileMap, tile_map_posi
 {
     tile_map_position Result = Pos;
 
-    CannonicalizeCoord(TileMap, &Result.AbsTileX, &Result.OffsetX);
-    CannonicalizeCoord(TileMap, &Result.AbsTileY, &Result.OffsetY);
+    CannonicalizeCoord(TileMap, &Result.AbsTileX, &Result.Offset.X);
+    CannonicalizeCoord(TileMap, &Result.AbsTileY, &Result.Offset.Y);
 
     return Result;
 }
@@ -126,12 +126,11 @@ internal tile_map_difference Subtract(tile_map *TileMap, tile_map_position* A, t
 {
     tile_map_difference Result = {};
 
-    float dTileX = TileMap->TileSideInMeters*((float)A->AbsTileX - (float)B->AbsTileX);
-    float dTileY = TileMap->TileSideInMeters*((float)A->AbsTileY - (float)B->AbsTileY);
+    vec2 dTileXY = { (float)A->AbsTileX - (float)B->AbsTileX, (float)A->AbsTileY - (float)B->AbsTileY };
+    dTileXY *= TileMap->TileSideInMeters;
     float dTileZ = TileMap->TileSideInMeters*((float)A->AbsTileZ - (float)B->AbsTileZ);
 
-    Result.dX = TileMap->TileSideInMeters* dTileX + (A->OffsetX - B->OffsetX);
-    Result.dY = TileMap->TileSideInMeters* dTileY + (A->OffsetY - B->OffsetY);
+    Result.dXY = TileMap->TileSideInMeters* dTileXY + (A->Offset - B->Offset);
     Result.dZ = TileMap->TileSideInMeters* dTileZ;
 
     return Result;

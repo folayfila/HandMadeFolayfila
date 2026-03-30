@@ -16,6 +16,22 @@ typedef uint32_t uint32;
 typedef uint64_t uint64;
 
 typedef int32 bool32;
+
+struct color
+{
+    float R;
+    float G;
+    float B;
+
+    void Set(float Red, float Green, float Blue)
+    {
+        R = Red;
+        G = Green;
+        B = Blue;
+    }
+
+};
+
 /**************************************/
 
 #define internal static
