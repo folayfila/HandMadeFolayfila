@@ -2,18 +2,14 @@
 
 #ifndef FOLAYFILA_MATH_H
 #define FOLAYFILA_MATH_H
-struct vec2
+union vec2
 {
-    union
-    {
-        struct { float X, Y; };
-        float E[2];
-    };
+    struct { float X, Y; };
+    float E[2];
 
     inline vec2& operator=(const vec2& A);
     inline vec2& operator=(const float& A);
     inline vec2& operator+=(const vec2& A);
-    inline vec2& operator*=(const vec2& A);
     inline vec2& operator*=(float A);
     inline vec2 operator-() const;
 };
@@ -36,13 +32,6 @@ inline vec2& vec2::operator+=(const vec2& A)
 {
     X += A.X;
     Y += A.Y;
-    return *this;
-}
-
-inline vec2& vec2::operator*=(const vec2& A)
-{
-    X *= A.X;
-    Y *= A.Y;
     return *this;
 }
 

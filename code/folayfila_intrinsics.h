@@ -89,6 +89,12 @@ inline float LinearBlend(float A, float B, float T)
     return Result;
 }
 
+inline float Square(float A)
+{
+    float Result = A*A;
+    return Result;
+}
+
 struct bit_scan_result
 {
     bool32 Found;

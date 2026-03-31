@@ -208,6 +208,7 @@ struct game_state
     world* World;
     tile_map_position CameraP;
     tile_map_position PlayerP;
+    vec2 dPlayer; // d = 1st deriv, dd 2nd deriv..etc
 
     loaded_bitmap PlayerBMP;
 };

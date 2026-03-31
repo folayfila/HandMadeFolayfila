@@ -57,6 +57,7 @@ struct tile_map
     uint32 ChunkDim;
 
     float TileSideInMeters;
+    int32 TileSideInPixels;
 
     uint32 TileChunkCountX;
     uint32 TileChunkCountY;

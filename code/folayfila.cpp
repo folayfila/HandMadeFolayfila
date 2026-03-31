@@ -216,6 +216,7 @@ internal GAME_UPDATE_AND_RENDER(InitializeGame)
         TileMap->ChunkDim = (1 << TileMap->ChunkShift);
 
         TileMap->TileSideInMeters = 1.0f;
+        TileMap->TileSideInPixels = 60;
 
         TileMap->TileChunkCountX = 128;
         TileMap->TileChunkCountY = 128;
@@ -370,47 +371,37 @@ internal void HandleGameInput(game_state *GameState, game_input *Input)
         }
 
         local_presist float Speed = 5.0f;
-        vec2 dPlayer = {};
+        vec2 ddPlayer = {};
         if (ControllerInput->MoveDown.EndedDown)
         {
-            dPlayer.Y -= 1.0f;
+            ddPlayer.Y -= 1.0f;
         }
         if (ControllerInput->MoveUp.EndedDown)
         {
-            dPlayer.Y += 1.0f;
+            ddPlayer.Y += 1.0f;
         }
         if (ControllerInput->MoveRight.EndedDown)
         {
-            dPlayer.X += 1.0f;
+            ddPlayer.X += 1.0f;
         }
         if (ControllerInput->MoveLeft.EndedDown)
         {
-            dPlayer.X -= 1.0f;
+            ddPlayer.X -= 1.0f;
         }
 
         if (ControllerInput->RightShoulder.EndedDown)
         {
-            dPlayer.X += 10.0f;
+            ddPlayer.X += 10.0f;
         }
         if (ControllerInput->LeftShoulder.EndedDown)
         {
-            dPlayer.X -= 10.0f;
+            ddPlayer.X -= 10.0f;
         }
         if (ControllerInput->ActionUp.EndedDown)
         {
             Speed = 20.0f;
         }
-        if (!ControllerInput->ActionUp.EndedDown)
-        {
-            Speed = 2.0f;
-        }
-        dPlayer *= Speed * Input->DeltaTime;
-
-        if (dPlayer.X == 0 && dPlayer.Y == 0)
-        {
-            continue;
-        }
-        else if (dPlayer.X != 0 && dPlayer.Y != 0)
+        else if (ddPlayer.X != 0 && ddPlayer.Y != 0)
         {
             // Using Pythagorean theorem to cancel the extended movement when the player
             // is moving diagonally:
@@ -418,16 +409,32 @@ internal void HandleGameInput(game_state *GameState, game_input *Input)
             // Diagonal means x=y; 2A^2 = C^2
             // A^2 = (C^2)/2 -> A = Sqrt(C^2/2) = Sqrt(1/2)C
             // Sqrt(1/2) = 0.7071067811865475f
-            float SqrtPointFive = 0.7071067811865475f;
-
-            dPlayer *= SqrtPointFive;
+            ddPlayer *= 0.7071067811865475f;
         }
+        if (!ControllerInput->ActionUp.EndedDown)
+        {
+            Speed = 10.0f;   // m/s^2
+        }
+        ddPlayer *= Speed;
 
+        ddPlayer += -1.5f*GameState->dPlayer;
+
+        // Integrating Position and velocity:
+        // Position: P' = 1/2AdT^2 + dT*V + P
         tile_map_position NewPlayerP = GameState->PlayerP;
-        NewPlayerP.Offset += dPlayer;
+        NewPlayerP.Offset = (0.5f*ddPlayer*Square(Input->DeltaTime) +
+                            Input->DeltaTime*GameState->dPlayer +
+                            NewPlayerP.Offset);
+        // Velocity: V' = AdT + V
+        GameState->dPlayer = ddPlayer*Input->DeltaTime + GameState->dPlayer;
+
         NewPlayerP = RecanonicalizePosition(TileMap, NewPlayerP);
 
-        if (IsTileMapPointEmpty(TileMap, NewPlayerP))
+        tile_map_position PlayerBottomRight = NewPlayerP;
+        PlayerBottomRight.Offset.X += GameState->PlayerBMP.Width/ (TileMap->TileSideInPixels/TileMap->TileSideInMeters);
+        PlayerBottomRight = RecanonicalizePosition(TileMap, PlayerBottomRight);
+
+        if (IsTileMapPointEmpty(TileMap, NewPlayerP) && IsTileMapPointEmpty(TileMap, PlayerBottomRight))
         {
             if (!AreOnSameTiles(&GameState->PlayerP, &NewPlayerP))
             {
@@ -487,7 +494,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     uint32 TilesPerWidth = TileMap->TilesPerWidth;
     uint32 TilesPerHeight = TileMap->TilesPerHeight;
 
-    int32 TileSideInPixels = 60;
+    int32 TileSideInPixels = TileMap->TileSideInPixels;
     float MetersToPixels = (float)TileSideInPixels / TileMap->TileSideInMeters;
 
     float ScreenCenterX = 0.5f * (float)GraphicsBuffer->Width - TileSideInPixels/2;
