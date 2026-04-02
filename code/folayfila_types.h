@@ -3,6 +3,17 @@
 #ifndef FOLAYFILA_TYPES_H
 #define FOLAYFILA_TYPES_H
 
+/*
+* floayfila custom naming convention:
+* - types -> snake_case
+* - functions / parameters / members -> PascalCase
+* - locals -> camelCase
+* - globals -> GlobalPrefixPascal
+* 
+* The reason is that I find it make searching for stuff easier.
+* In a large code block, you immediatly identify which are local variebles and which are passed or are memebers.
+*/
+
 #include <stdint.h>
 /************** Types ***************/
 typedef int8_t int8;

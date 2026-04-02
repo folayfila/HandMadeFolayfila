@@ -9,24 +9,24 @@
 
 inline int StringLength(char* String)
 {
-    int Count = 0;
+    int count = 0;
     while (*String++)
     {
-        ++Count;
+        ++count;
     }
-    return Count;
+    return count;
 }
 
 inline void CatStrings(size_t SourceACount, char* SourceA,
     size_t SourceBCount, char* SourceB,
     size_t DestCount, char* Dest)
 {
-    for (size_t Index = 0; Index < SourceACount; ++Index)
+    for (size_t index = 0; index < SourceACount; ++index)
     {
         *Dest++ = *SourceA++;
     }
 
-    for (size_t Index = 0; Index < SourceBCount; ++Index)
+    for (size_t index = 0; index < SourceBCount; ++index)
     {
         *Dest++ = *SourceB++;
     }
@@ -208,7 +208,7 @@ struct game_state
     world* World;
     tile_map_position CameraP;
     tile_map_position PlayerP;
-    vec2 dPlayer; // d = 1st deriv, dd 2nd deriv..etc
+    vec2 dPlayerP; // d = 1st deriv, dd 2nd deriv..etc
 
     loaded_bitmap PlayerBMP;
 };
@@ -219,10 +219,10 @@ struct game_state
 void* PushSize_(memory_arena* Arena, size_t Size)
 {
     Assert((Arena->Used + Size) <= Arena->Size);
-    void* Result = Arena->Base + Arena->Used;
+    void* result = Arena->Base + Arena->Used;
     Arena->Used += Size;
 
-    return Result;
+    return result;
 }
 
 

@@ -50,39 +50,45 @@ inline vec2 vec2::operator-() const
 // Free functions
 inline vec2 operator+(vec2 A, vec2 B)
 {
-    vec2 Result;
+    vec2 result;
 
-    Result.X = A.X + B.X;
-    Result.Y = A.Y + B.Y;
+    result.X = A.X + B.X;
+    result.Y = A.Y + B.Y;
 
-    return Result;
+    return result;
 }
 inline vec2 operator-(vec2 A, vec2 B)
 {
-    vec2 Result;
+    vec2 result;
 
-    Result.X = A.X - B.X;
-    Result.Y = A.Y - B.Y;
+    result.X = A.X - B.X;
+    result.Y = A.Y - B.Y;
 
-    return Result;
+    return result;
 }
 inline vec2 operator*(float A, vec2 B)
 {
-    vec2 Result;
+    vec2 result;
 
-    Result.X = A*B.X;
-    Result.Y = A*B.Y;
+    result.X = A*B.X;
+    result.Y = A*B.Y;
 
-    return Result;
+    return result;
 }
 inline vec2 operator*(vec2 A, float B)
 {
-    vec2 Result;
+    vec2 result;
 
-    Result.X = A.X*B;
-    Result.Y = A.Y*B;
+    result.X = A.X*B;
+    result.Y = A.Y*B;
 
-    return Result;
+    return result;
+}
+
+inline float Dot(vec2 A, vec2 B)
+{
+    float result = (A.X * B.X) + (A.Y * B.Y);
+    return result;
 }
 
 struct vec3
