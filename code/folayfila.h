@@ -183,6 +183,20 @@ typedef GAME_UPDATE_AND_RENDER(game_update_and_render);
 ///
 /// 
 
+struct rect
+{
+    float Width;
+    float Height;
+
+    /* Points must be in this order:
+    * [0] Bottom Left,
+    * [1] Top Left,
+    * [0] Top Right,
+    * [0] Bottom Right,
+    */
+    tile_map_position Points[4];
+};
+
 struct memory_arena
 {
     size_t Size;
@@ -202,15 +216,25 @@ struct loaded_bitmap
     uint32* Pixels;
 };
 
+struct entity
+{
+    bool32 Exists;
+    tile_map_position Pos;
+    vec2 Velocity; // d = 1st deriv, dd 2nd deriv..etc
+};
+
 struct game_state
 {
     memory_arena WorldArena;
     world* World;
+    
+    uint32 CameraFollowingEntityIndex;
     tile_map_position CameraP;
-    tile_map_position PlayerP;
-    vec2 dPlayerP; // d = 1st deriv, dd 2nd deriv..etc
+    
+    uint32 CurrentNumberOfPlayers;
+    entity Entities[100];
 
-    loaded_bitmap PlayerBMP;
+    loaded_bitmap PlayerBMP[3];
 };
 
 

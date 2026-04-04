@@ -105,12 +105,19 @@ internal uint32 GetTileValue(tile_map* TileMap, tile_map_position* Pos)
     return tileValue;
 }
 
+internal bool32 IsTileValueEmpty(uint32 TileValue)
+{
+    bool32 isEmpty = ((TileValue == tile_type::Dirt) ||
+        (TileValue == tile_type::CaveEntrance) ||
+        (TileValue == tile_type::CaveExit));
+
+    return isEmpty;
+}
+
 internal bool32 IsTileMapPointEmpty(tile_map* TileMap, tile_map_position CanPos)
 {
     uint32 tileChunkValue = GetTileValue(TileMap, CanPos.AbsTileX, CanPos.AbsTileY, CanPos.AbsTileZ);
-    bool32 empty = ((tileChunkValue == tile_type::Dirt) ||
-                    (tileChunkValue == tile_type::CaveEntrance) ||
-                    (tileChunkValue == tile_type::CaveExit));
+    bool32 empty = IsTileValueEmpty(tileChunkValue);
     return empty;
 }
 
@@ -122,16 +129,24 @@ internal bool32 AreOnSameTiles(tile_map_position *A, tile_map_position *B)
     return areOnSameTile;
 }
 
-internal tile_map_difference Subtract(tile_map *TileMap, tile_map_position* A, tile_map_position* B)
+internal vec3 Subtract(tile_map *TileMap, tile_map_position* A, tile_map_position* B)
 {
-    tile_map_difference result = {};
+    vec3 result = {};
 
-    vec2 dTileXY = { (float)A->AbsTileX - (float)B->AbsTileX, (float)A->AbsTileY - (float)B->AbsTileY };
-    dTileXY *= TileMap->TileSideInMeters;
-    float dTileZ = TileMap->TileSideInMeters*((float)A->AbsTileZ - (float)B->AbsTileZ);
+    result.X = (((float)A->AbsTileX - (float)B->AbsTileX) * TileMap->TileSideInMeters) + (A->Offset.X - B->Offset.X);
+    result.Y = (((float)A->AbsTileY - (float)B->AbsTileY) * TileMap->TileSideInMeters) + (A->Offset.Y - B->Offset.Y);
+    result.Z = (((float)A->AbsTileZ - (float)B->AbsTileZ) * TileMap->TileSideInMeters);
 
-    result.dXY = TileMap->TileSideInMeters* dTileXY + (A->Offset - B->Offset);
-    result.dZ = TileMap->TileSideInMeters* dTileZ;
+    return result;
+}
+
+inline tile_map_position CenteredTilePoint(uint32 AbsTileX, uint32 AbsTileY, uint32 AbsTileZ)
+{
+    tile_map_position result = {};
+
+    result.AbsTileX = AbsTileX;
+    result.AbsTileY = AbsTileY;
+    result.AbsTileZ = AbsTileZ;
 
     return result;
 }

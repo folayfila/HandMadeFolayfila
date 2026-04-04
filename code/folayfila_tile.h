@@ -17,12 +17,6 @@ enum tile_type
     None  = 0
 };
 
-struct tile_map_difference
-{
-    vec2 dXY;
-    float dZ;
-};
-
 struct tile_map_position
 {
     // Fixed point tile locations.

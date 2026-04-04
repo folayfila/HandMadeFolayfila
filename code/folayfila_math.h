@@ -91,6 +91,12 @@ inline float Dot(vec2 A, vec2 B)
     return result;
 }
 
+inline float LengthSq(vec2 A)
+{
+    float result = Dot(A, A);
+    return result;
+}
+
 struct vec3
 {
     float X;

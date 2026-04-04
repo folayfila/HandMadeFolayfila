@@ -616,7 +616,11 @@ internal void Win32HandleKeyboardInput(MSG *Message, win32_state* State, WPARAM 
         }
         else if (vKCode == VK_SPACE)
         {
-            Win32ProcessKeyboardMessage(&KeyboardController->ActionUp, isDown);
+            Win32ProcessKeyboardMessage(&KeyboardController->Start, isDown);
+        }
+        else if (vKCode == VK_LSHIFT)
+        {
+            Win32ProcessKeyboardMessage(&KeyboardController->ActionDown, isDown);
         }
         else if (vKCode == VK_ESCAPE)
         {
