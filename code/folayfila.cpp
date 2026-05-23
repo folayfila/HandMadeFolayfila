@@ -243,14 +243,14 @@ internal GAME_UPDATE_AND_RENDER(InitializeGame)
         // Temp code just to change the color of ma bois
         for (uint32 i = 0; i < 4; ++i)
         {
-            gameState->PlayerBMP[i] = DEBUGLoadBMP(Thread, GameMemory->DEBUGPlatformReadEntireFile, "sprites/folayfila_64_0.bmp");
+            gameState->PlayerBMP[i] = DEBUGLoadBMP(Thread, GameMemory->DEBUGPlatformReadEntireFile, "content/sprites/folayfila_64_0.bmp");
 
             // >> MAKING FOLAYFILA REEEEEDDDDD!!
             // > very poor code, just doing it for the hell of it
             uint32* SourceDest = gameState->PlayerBMP[i].Pixels;
             for (int32 Y = 0; Y < gameState->PlayerBMP[i].Height; ++Y)
             {
-                for (int X = 0; X < gameState->PlayerBMP[i].Width; ++X)
+                for (int32 X = 0; X < gameState->PlayerBMP[i].Width; ++X)
                 {
                     uint32 C = *SourceDest;
                     uint32 Red = (C & (0xFF) << 16);
@@ -437,11 +437,22 @@ internal GAME_UPDATE_AND_RENDER(InitializeGame)
     }
 }
 
-internal vec2 ClosestPointInRectangle(vec2 MinCorner, vec2 MaxCorner, vec2 Point)
+internal void TestWall(float WallX, float RelX, float RelY, float PlayerDeltaX, float PlayerDeltaY,
+    float *tMin, float MinY, float MaxY)
 {
-    vec2 result = {};
+    if (PlayerDeltaX != 0.0f)
+    {
+        float tResult = (WallX - RelX) / PlayerDeltaX;
+        float y = RelY + tResult * PlayerDeltaY;
 
-    return result;
+        if ((tResult >= 0) && (*tMin > tResult))
+        {
+            if ((y >= MinY) && (y <= MaxY))
+            {
+                *tMin = tResult;
+            }
+        }
+    }
 }
 
 internal void HandleGameInput(game_state* GameState, game_input* Input)
@@ -463,58 +474,80 @@ internal void HandleGameInput(game_state* GameState, game_input* Input)
             continue;
         }
 
+        if (!player->Exists && controllerIndex == 1)
+        {
+            if (controllerInput->Start.EndedDown)
+            {
+
+                AddPlayer(GameState, player);
+                player->Exists = true;
+            }
+            else
+            {
+                // > TODO: Actually fix this
+                // controller 1 is for player one which is might be ignored for keyborad
+                player = GetEntity(GameState, 0);
+            }
+        }
+
         if (player->Exists)
         {
-            tile_map_position oldPlayerP = player->Pos;
-
             vec2 acceleration = {};
+            float normalMoveSpeed = 1.0f;
+            float nudgeSpeed = 5.0f;
+            if (controllerInput->IsAnalog)
+            {
+                acceleration = controllerInput->StickAverage;
+            }
             if (controllerInput->MoveDown.EndedDown)
             {
-                acceleration.Y -= 1.0f;
+                acceleration.Y -= normalMoveSpeed;
             }
             if (controllerInput->MoveUp.EndedDown)
             {
-                acceleration.Y += 1.0f;
+                acceleration.Y += normalMoveSpeed;
             }
             if (controllerInput->MoveRight.EndedDown)
             {
-                acceleration.X += 1.0f;
+                acceleration.X += normalMoveSpeed;
             }
             if (controllerInput->MoveLeft.EndedDown)
             {
-                acceleration.X -= 1.0f;
+                acceleration.X -= normalMoveSpeed;
             }
             if (controllerInput->RightShoulder.EndedDown)
             {
-                acceleration.X += 10.0f;
+                acceleration.X += nudgeSpeed;
             }
             if (controllerInput->LeftShoulder.EndedDown)
             {
-                acceleration.X -= 10.0f;
+                acceleration.X -= nudgeSpeed;
+            }
+
+            float accLength = LengthSq(acceleration);
+            if (accLength > 1.0f)
+            {
+                //acceleration *= (1.0f / Sqrt(accLength));
             }
 
             float speed = controllerInput->ActionDown.EndedDown ? 20.0f : 10.0f;
-            if (acceleration.X != 0 && acceleration.Y != 0)
-            {
-                acceleration *= 0.7071067811865475f;
-            }
             acceleration *= speed;
 
-            acceleration += -0.5f * player->Pos.Offset;
+            //acceleration += 0.5f * player->Pos.Offset;
+
+            tile_map_position oldPlayerP = player->Pos;
 
             // Integrating Position and velocity:
             // Position: P' = 1/2AdT^2 + dT*V + P
-            tile_map_position newPlayerP = player->Pos;
+            //vec2 playerDelta = (0.5f * acceleration * Sqr(Input->DeltaTime) +
+            //    Input->DeltaTime * player->Velocity);
+            vec2 playerDelta = acceleration * Input->DeltaTime;
+            //player->Velocity += acceleration * Input->DeltaTime;
 
-            vec2 playerDelta = (0.5f * acceleration * Square(Input->DeltaTime) +
-                Input->DeltaTime * player->Velocity);
+            tile_map_position newPlayerP = oldPlayerP;
             newPlayerP.Offset += playerDelta;
-            // Velocity: V' = AdT + V
-            player->Velocity += acceleration * Input->DeltaTime;
-            newPlayerP = RecanonicalizePosition(tileMap, newPlayerP);
 
 #if 0
-
             float playerWidth = (GameState->PlayerBMP.Width / (tileMap->TileSideInPixels / tileMap->TileSideInMeters)) * 0.5f;
             float playerHeight = (GameState->PlayerBMP.Height / (tileMap->TileSideInPixels / tileMap->TileSideInMeters)) * 0.5f;
             rect playerBounds = CreateRectFromPoint(tileMap, newPlayerP, playerWidth, playerHeight);
@@ -552,35 +585,41 @@ internal void HandleGameInput(game_state* GameState, game_input* Input)
 
                 player->Velocity = player->Velocity - 2 * Dot(player->Velocity, reflectionVector) * reflectionVector;
             }
+            newPlayerP.Offset += playerDelta;
+            // Velocity: V' = AdT + V
+            newPlayerP = RecanonicalizePosition(tileMap, newPlayerP);
+
 #else
-            uint32 minTileX = 0;
-            uint32 minTileY = 0;
-            uint32 onePastMaxTileX = 0;
-            uint32 onePastMaxTileY = 0;
+            uint32 minTileX = Minimum(oldPlayerP.AbsTileX, newPlayerP.AbsTileX);
+            uint32 minTileY = Minimum(oldPlayerP.AbsTileY, newPlayerP.AbsTileY);
+            uint32 onePastMaxTileX = Maximum(oldPlayerP.AbsTileX, newPlayerP.AbsTileX) + 1;
+            uint32 onePastMaxTileY = Maximum(oldPlayerP.AbsTileY, newPlayerP.AbsTileY) + 1;;
+
             uint32 absTileZ = player->Pos.AbsTileZ;
-            tile_map_position bestPlayerP = newPlayerP;
-            float bestDistanceSq = LengthSq(playerDelta);
+            float tMin = 1.0f;
             for (uint32 absTileY = minTileY; absTileY != onePastMaxTileY; ++absTileY)
             {
                 for (uint32 absTileX = minTileX; absTileX != onePastMaxTileX; ++absTileX)
                 {
                     tile_map_position testTileP = CenteredTilePoint(absTileX, absTileY, absTileZ);
                     uint32 tileValue = GetTileValue(tileMap, absTileX, absTileY, absTileZ);
-                    if (IsTileValueEmpty(tileValue))
+                    if (!IsTileValueEmpty(tileValue))
                     {
                         vec2 minCorner = -0.5 * vec2{ tileMap->TileSideInMeters, tileMap->TileSideInMeters };
                         vec2 maxCorner = 0.5 * vec2{ tileMap->TileSideInMeters, tileMap->TileSideInMeters };
 
-                        vec3 relNewPlayerP = Subtract(tileMap, &testTileP, &newPlayerP);
-                        vec2 testP = ClosestPointInRectangle(minCorner, maxCorner, vec2{ relNewPlayerP.X, relNewPlayerP.Y });
+                        vec3 relOldPlayerP = Subtract(tileMap, &oldPlayerP, &testTileP);
+
+                        TestWall(minCorner.X, relOldPlayerP.X, relOldPlayerP.Y, playerDelta.X, playerDelta.Y, &tMin, minCorner.Y, maxCorner.Y);
+                        TestWall(maxCorner.X, relOldPlayerP.X, relOldPlayerP.Y, playerDelta.X, playerDelta.Y, &tMin, minCorner.Y, maxCorner.Y);
+                        TestWall(minCorner.Y, relOldPlayerP.Y, relOldPlayerP.X, playerDelta.Y, playerDelta.X, &tMin, minCorner.X, maxCorner.X);
+                        TestWall(maxCorner.Y, relOldPlayerP.Y, relOldPlayerP.X, playerDelta.Y, playerDelta.X, &tMin, minCorner.X, maxCorner.X);
                     }
                 }
             }
-
-            if (IsTileMapPointEmpty(tileMap, newPlayerP))
-            {
-                player->Pos = newPlayerP;
-            }
+            newPlayerP = oldPlayerP;
+            newPlayerP.Offset += tMin*playerDelta;
+            player->Pos = newPlayerP;
 #endif
             if (!AreOnSameTiles(&oldPlayerP, &player->Pos))
             {

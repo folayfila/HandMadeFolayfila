@@ -178,6 +178,9 @@ struct game_memory
 /**************************************/
 #define GAME_UPDATE_AND_RENDER(name) void name(thread_context *Thread, game_memory* GameMemory, game_input* Input, game_graphics_buffer* GraphicsBuffer, game_output_sound_buffer* SoundBuffer)
 typedef GAME_UPDATE_AND_RENDER(game_update_and_render);
+
+#define Minimum(A, B) ((A < B) ? (A) : (B))
+#define Maximum(A, B) ((A > B) ? (A) : (B))
 ///
 ///
 ///

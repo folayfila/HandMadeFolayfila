@@ -748,10 +748,7 @@ internal void Win32HandleControllerInput(HWND Window, game_input* OldInput, game
             newController->StickAverage.Y = Win32ProcessXInputStickValue(
                 pad->sThumbLY, XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE);
 
-            if(newController->StickAverage.X != 0 || newController->StickAverage.Y)
-            {
-                newController->IsAnalog = true;
-            }
+            newController->IsAnalog = (newController->StickAverage.X != 0 || newController->StickAverage.Y != 0);
 
             // Analog
             float threshold = 0.5f;
@@ -842,7 +839,7 @@ inline float Win32GetSecondsElapsed(LARGE_INTEGER Start, LARGE_INTEGER End)
 }
 
 /**************************** WinMain *******************************/
-int CALLBACK WinMain( HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLine, int ShowCode)
+int WINAPI wWinMain(HINSTANCE Instance, HINSTANCE PrevInstance, PWSTR CommandLine, int ShowCode)
 {
     LARGE_INTEGER perfCountFrequencyResult;
     QueryPerformanceFrequency(&perfCountFrequencyResult);  // Fixed at system boot and consistent across all processors.

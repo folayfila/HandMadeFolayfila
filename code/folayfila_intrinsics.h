@@ -89,9 +89,23 @@ inline float LinearBlend(float A, float B, float T)
     return result;
 }
 
-inline float Square(float A)
+// Square
+inline float Sqr(float A)
 {
     float result = A*A;
+    return result;
+}
+
+// Square Root
+inline float Sqrt(float A)
+{
+    float result = sqrtf(A);
+    return result;
+}
+
+inline float AbsoluteValue(float A)
+{
+    float result = fabsf(A);
     return result;
 }
 
