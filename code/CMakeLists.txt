@@ -1,6 +1,15 @@
+# HOW TO BUILD SOLUTION
+# run code/shell.bat
+# Open cmd in F:/build
+# run: cmake ../code -G "Visual Studio 18 2026"
+# Open the new sln in F:/build and set win32_folayfila as a startup project.
+# Right click it and open the properties, set the Debugging working directory to $(SolutionDir)..\
+# "Ctrl+Shift+B" to build and "Ctrl+F5" to run and be able to hot reload.
+#########################
+
 cmake_minimum_required(VERSION 3.20)
 
-project(folayfila C CXX)
+project(HandmadeFolayfila C CXX)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
