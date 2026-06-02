@@ -1,5 +1,6 @@
 ##### Note:
-- If you're looking for representable code, check out my other repos, especially https://github.com/folayfila/FadoEngine. In my FadoEngine, I implement a lot of the conecpts used and leared here.
+- If you're looking for representable code, check out my other repos, especially https://github.com/folayfila/FadoEngine.
+- In my FadoEngine, I implement a lot of the conecpts used and learned here.
 
 # HandMadeFolayfila
 A 2D game engine from *scratch*, no libraries whatsoever, just good old C/C++ code.
